@@ -1,0 +1,6 @@
+{
+  "name": "ระบบบันทึกคำสั่งซื้อ - บริษัท สุมาลี ฟู๊ด สระบุรี จำกัด",
+  "description": "ระบบบันทึกคำสั่งซื้อ บริษัท สุมาลี ฟู๊ด สระบุรี จำกัด SUMALEE FOOD SARABURI CO., LTD. คีย์ข้อมูลใบสั่งซื้อ กรอกชื่อ ที่อยู่ เบอร์โทร สินค้า ราคา และจำนวน (กก.) พร้อมสรุปยอดขาย",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

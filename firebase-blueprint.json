@@ -1,0 +1,37 @@
+{
+  "entities": {
+    "purchase_orders": {
+      "title": "Purchase Orders",
+      "description": "Purchase order records for Sumalee Food Saraburi",
+      "type": "object",
+      "properties": {
+        "orderNumber": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "customer": { "type": "object" },
+        "items": { "type": "array" },
+        "totalWeightKg": { "type": "number" },
+        "totalAmount": { "type": "number" },
+        "paymentStatus": { "type": "string" },
+        "deliveryStatus": { "type": "string" },
+        "note": { "type": "string" }
+      },
+      "required": ["orderNumber", "createdAt", "customer", "items", "totalWeightKg", "totalAmount", "paymentStatus", "deliveryStatus"]
+    },
+    "stock_entries": {
+      "title": "Stock Production Entries",
+      "description": "Factory production stock entries per day and shift (day/night)",
+      "type": "object",
+      "properties": {
+        "dateKey": { "type": "string" },
+        "shift": { "type": "string" },
+        "shiftLabel": { "type": "string" },
+        "items": { "type": "array" },
+        "totalWeightKg": { "type": "number" },
+        "recordedBy": { "type": "string" },
+        "note": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["dateKey", "shift", "items", "totalWeightKg", "createdAt"]
+    }
+  }
+}
