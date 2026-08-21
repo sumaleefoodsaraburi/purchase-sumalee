@@ -7,7 +7,7 @@ export const FACTORY_STOCK_PRESET_NAMES = [
   'หอมเจียวยางแดง 5กก (รหัส OF01)',
   'หอมเจียวยางเขียว 5กก (รหัส OF02)',
   'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)',
-  'หอมเจียวแป้งหนา 5กก (รหัส OF03)',
+  'หอมเจียวC 5กก (รหัส OF03)',
 ];
 
 export const STOCK_CUTOFF_DATE = '2026-08-01';
@@ -22,7 +22,7 @@ export function normalizeProductName(name: string): string | null {
   if (t.includes('OF01') || t.includes('ยางแดง')) return 'หอมเจียวยางแดง 5กก (รหัส OF01)';
   if (t.includes('OF02.01') || t.includes('500กรัม') || t.includes('500 กรัม')) return 'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)';
   if (t.includes('OF02') || t.includes('ยางเขียว')) return 'หอมเจียวยางเขียว 5กก (รหัส OF02)';
-  if (t.includes('OF03') || t.includes('แป้งหนา')) return 'หอมเจียวแป้งหนา 5กก (รหัส OF03)';
+  if (t.includes('OF03') || t.includes('แป้งหนา') || t.includes('หอมเจียวC') || t.includes('หอมเจียว C') || t.includes('หอมเจียว c')) return 'หอมเจียวC 5กก (รหัส OF03)';
   return null;
 }
 
@@ -48,7 +48,7 @@ export function getSampleStockEntries(): StockEntry[] {
         { id: 'i1', productName: 'หอมเจียวยางแดง 5กก (รหัส OF01)', weightKg: 180 },
         { id: 'i2', productName: 'หอมเจียวยางเขียว 5กก (รหัส OF02)', weightKg: 150 },
         { id: 'i3', productName: 'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)', weightKg: 70 },
-        { id: 'i4', productName: 'หอมเจียวแป้งหนา 5กก (รหัส OF03)', weightKg: 50 },
+        { id: 'i4', productName: 'หอมเจียวC 5กก (รหัส OF03)', weightKg: 50 },
       ],
     },
     {
@@ -63,7 +63,7 @@ export function getSampleStockEntries(): StockEntry[] {
       items: [
         { id: 'i5', productName: 'หอมเจียวยางแดง 5กก (รหัส OF01)', weightKg: 200 },
         { id: 'i6', productName: 'หอมเจียวยางเขียว 5กก (รหัส OF02)', weightKg: 100 },
-        { id: 'i7', productName: 'หอมเจียวแป้งหนา 5กก (รหัส OF03)', weightKg: 50 },
+        { id: 'i7', productName: 'หอมเจียวC 5กก (รหัส OF03)', weightKg: 50 },
       ],
     },
     {
@@ -79,7 +79,7 @@ export function getSampleStockEntries(): StockEntry[] {
         { id: 'i8', productName: 'หอมเจียวยางแดง 5กก (รหัส OF01)', weightKg: 220 },
         { id: 'i9', productName: 'หอมเจียวยางเขียว 5กก (รหัส OF02)', weightKg: 180 },
         { id: 'i10', productName: 'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)', weightKg: 50 },
-        { id: 'i11', productName: 'หอมเจียวแป้งหนา 5กก (รหัส OF03)', weightKg: 50 },
+        { id: 'i11', productName: 'หอมเจียวC 5กก (รหัส OF03)', weightKg: 50 },
       ],
     },
     {
@@ -95,7 +95,7 @@ export function getSampleStockEntries(): StockEntry[] {
         { id: 'i12', productName: 'หอมเจียวยางแดง 5กก (รหัส OF01)', weightKg: 200 },
         { id: 'i13', productName: 'หอมเจียวยางเขียว 5กก (รหัส OF02)', weightKg: 120 },
         { id: 'i14', productName: 'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)', weightKg: 50 },
-        { id: 'i15', productName: 'หอมเจียวแป้งหนา 5กก (รหัส OF03)', weightKg: 50 },
+        { id: 'i15', productName: 'หอมเจียวC 5กก (รหัส OF03)', weightKg: 50 },
       ],
     },
   ];

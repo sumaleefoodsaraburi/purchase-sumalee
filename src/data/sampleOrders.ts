@@ -45,7 +45,7 @@ export const FACTORY_STOCK_PRODUCT_OPTIONS = [
   { code: 'OF01', name: 'หอมเจียวยางแดง 5กก (รหัส OF01)' },
   { code: 'OF02', name: 'หอมเจียวยางเขียว 5กก (รหัส OF02)' },
   { code: 'OF02.01', name: 'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)' },
-  { code: 'OF03', name: 'หอมเจียวแป้งหนา 5กก (รหัส OF03)' },
+  { code: 'OF03', name: 'หอมเจียวC 5กก (รหัส OF03)' },
 ];
 
 /**
@@ -55,7 +55,7 @@ export const POPULAR_PRODUCTS_PRESETS = [
   { name: 'หอมเจียวยางแดง 5กก (รหัส OF01)', defaultPrice: 120 },
   { name: 'หอมเจียวยางเขียว 5กก (รหัส OF02)', defaultPrice: 120 },
   { name: 'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)', defaultPrice: 65 },
-  { name: 'หอมเจียวแป้งหนา 5กก (รหัส OF03)', defaultPrice: 110 },
+  { name: 'หอมเจียวC 5กก (รหัส OF03)', defaultPrice: 110 },
   { name: 'หอมเจียว (กก.)', defaultPrice: 120 },
   { name: 'กระเทียมเจียว (กก.)', defaultPrice: 110 },
   { name: 'พริกผัดน้ำมัน (กก.)', defaultPrice: 150 },

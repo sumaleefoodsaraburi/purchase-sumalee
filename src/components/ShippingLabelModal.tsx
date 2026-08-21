@@ -2,8 +2,7 @@ import React from 'react';
 import { PurchaseOrder } from '../types';
 import { formatCurrency, formatWeight, formatThaiDateTime } from '../utils/formatters';
 import { triggerPrintHtml, openPrintWindow, getShippingLabelHtml } from '../utils/printHelper';
-import { translateProductToBurmese } from '../utils/burmeseTranslator';
-import { Printer, ExternalLink, X, MapPin, Phone, Package, Building2, AlertCircle, Languages } from 'lucide-react';
+import { Printer, ExternalLink, X, MapPin, Phone, Package, Building2, AlertCircle } from 'lucide-react';
 
 interface ShippingLabelModalProps {
   order: PurchaseOrder | null;

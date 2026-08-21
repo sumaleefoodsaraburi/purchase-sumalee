@@ -2,8 +2,7 @@ import React from 'react';
 import { PurchaseOrder } from '../types';
 import { formatCurrency, formatWeight, formatThaiDateTime } from '../utils/formatters';
 import { triggerPrintHtml, openPrintWindow, getReceiptHtml } from '../utils/printHelper';
-import { translateProductToBurmese } from '../utils/burmeseTranslator';
-import { X, Printer, ExternalLink, Phone, MapPin, Calendar, FileText, Languages } from 'lucide-react';
+import { X, Printer, ExternalLink, Phone, MapPin, Calendar, FileText } from 'lucide-react';
 
 interface ReceiptModalProps {
   order: PurchaseOrder | null;
@@ -148,10 +147,6 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           <div>
             <div className="flex items-center justify-between mb-2">
               <h4 className="font-bold text-xs text-slate-700 uppercase tracking-wider">รายการสินค้าที่สั่งซื้อ</h4>
-              <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-                <Languages className="w-3.5 h-3.5 text-emerald-600" />
-                <span>แปลภาษาพม่าอัตโนมัติ (မြန်မာဘာသာ)</span>
-              </div>
             </div>
             <div className="border border-slate-200 rounded-xl overflow-hidden">
               <table className="w-full text-xs text-left">
@@ -165,29 +160,22 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {order.items.map((item, idx) => {
-                    const burmeseName = translateProductToBurmese(item.productName);
-                    return (
-                      <tr key={item.id} className="hover:bg-slate-50/50">
-                        <td className="py-2.5 px-3 text-slate-500">{idx + 1}</td>
-                        <td className="py-2.5 px-3">
-                          <div className="font-semibold text-slate-900 flex items-center gap-2">
-                            <span>{item.productName}</span>
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
-                              {item.packSize === '500g' ? 'แพ็ค 500g' : item.packSize === '5kg' ? 'แพ็ค 5kg' : 'แพ็ค 1 กก.'}
-                            </span>
-                          </div>
-                          <div className="text-[11px] font-bold text-emerald-700 mt-0.5 flex items-center gap-1">
-                            <span className="text-[10px]">🇲🇲</span>
-                            <span>{burmeseName}</span>
-                          </div>
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono text-slate-600">{formatCurrency(item.pricePerKg)}</td>
-                        <td className="py-2.5 px-3 text-right font-bold text-emerald-800">{formatWeight(item.weightKg)}</td>
-                        <td className="py-2.5 px-3 text-right font-bold text-slate-900">{formatCurrency(item.totalPrice)}</td>
-                      </tr>
-                    );
-                  })}
+                  {order.items.map((item, idx) => (
+                    <tr key={item.id} className="hover:bg-slate-50/50">
+                      <td className="py-2.5 px-3 text-slate-500">{idx + 1}</td>
+                      <td className="py-2.5 px-3">
+                        <div className="font-semibold text-slate-900 flex items-center gap-2">
+                          <span>{item.productName}</span>
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                            {item.packSize === '500g' ? 'แพ็ค 500g' : item.packSize === '5kg' ? 'แพ็ค 5kg' : 'แพ็ค 1 กก.'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono text-slate-600">{formatCurrency(item.pricePerKg)}</td>
+                      <td className="py-2.5 px-3 text-right font-bold text-emerald-800">{formatWeight(item.weightKg)}</td>
+                      <td className="py-2.5 px-3 text-right font-bold text-slate-900">{formatCurrency(item.totalPrice)}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

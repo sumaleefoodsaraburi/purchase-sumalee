@@ -1,6 +1,5 @@
 import { PurchaseOrder } from '../types';
 import { formatCurrency, formatWeight, formatThaiDateTime } from './formatters';
-import { translateProductToBurmese } from './burmeseTranslator';
 
 /**
  * Generate full HTML document string for Purchase Order Receipt
@@ -9,16 +8,12 @@ export function getReceiptHtml(order: PurchaseOrder): string {
   const itemsRows = order.items
     .map(
       (item, idx) => {
-        const burmeseName = translateProductToBurmese(item.productName);
         const packLabel = item.packSize === '500g' ? ' <span style="font-size:10px; background:#f1f5f9; padding:2px 6px; border-radius:4px; color:#475569; border:1px solid #cbd5e1;">แพ็ค 500g</span>' : item.packSize === '5kg' ? ' <span style="font-size:10px; background:#f1f5f9; padding:2px 6px; border-radius:4px; color:#475569; border:1px solid #cbd5e1;">แพ็ค 5kg</span>' : ' <span style="font-size:10px; background:#f1f5f9; padding:2px 6px; border-radius:4px; color:#475569; border:1px solid #cbd5e1;">แพ็ค 1 กก.</span>';
         return `
         <tr>
           <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: center; color: #64748b;">${idx + 1}</td>
           <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0;">
             <div style="font-weight: 700; color: #0f172a; font-size: 13px;">${item.productName}${packLabel}</div>
-            <div style="font-size: 11px; font-weight: 700; color: #047857; margin-top: 2px;">
-              🇲🇲 ${burmeseName}
-            </div>
           </td>
           <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: right; font-family: monospace;">${formatCurrency(item.pricePerKg)}</td>
           <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 700; color: #065f46;">${formatWeight(item.weightKg)}</td>

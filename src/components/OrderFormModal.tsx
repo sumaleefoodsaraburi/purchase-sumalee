@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { PurchaseOrder, OrderItem, PaymentStatus, DeliveryStatus, TaxInvoiceInfo } from '../types';
 import { POPULAR_PRODUCTS_PRESETS } from '../data/sampleOrders';
 import { formatCurrency, formatWeight, generatePoNumber } from '../utils/formatters';
-import { translateProductToBurmese } from '../utils/burmeseTranslator';
 import {
   X,
   Plus,
@@ -576,14 +575,6 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
                       onChange={(e) => updateItemField(item.id, 'productName', e.target.value)}
                       className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white border border-slate-300 rounded-lg text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-slate-900"
                     />
-                    {item.productName.trim() && (
-                      <div className="text-[10px] font-bold text-emerald-700 mt-1 flex items-center gap-1">
-                        <span>🇲🇲 ภาษาพม่า:</span>
-                        <span className="bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded border border-emerald-200">
-                          {translateProductToBurmese(item.productName)}
-                        </span>
-                      </div>
-                    )}
                   </div>
 
                   {/* Price per Kg */}
