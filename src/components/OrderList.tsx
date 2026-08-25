@@ -24,6 +24,7 @@ import {
   MapPin,
   Clock,
   Package,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 interface OrderListProps {
@@ -92,34 +93,124 @@ export const OrderList: React.FC<OrderListProps> = ({
   const filteredRevenue = filtered.reduce((sum, o) => sum + o.totalAmount, 0);
   const filteredWeightKg = filtered.reduce((sum, o) => sum + o.totalWeightKg, 0);
 
-  // Export CSV Handler
-  const handleExportCSV = () => {
+  // Export Excel/CSV Handler (Itemized with Price/Unit)
+  const handleExportExcel = () => {
     if (filtered.length === 0) return;
 
-    let csv = 'เลขที่ใบสั่งซื้อ,วันที่,ชื่อลูกค้า,เบอร์โทร,ที่อยู่,รายการสินค้า,น้ำหนักรวม (กก.),ราคารวม (บาท),สถานะชำระเงิน,หมายเหตุ\n';
+    const headers = [
+      'เลขที่ใบสั่งซื้อ',
+      'วันที่สั่งซื้อ',
+      'ชื่อลูกค้า',
+      'เบอร์โทรศัพท์',
+      'ที่อยู่จัดส่ง',
+      'ลำดับสินค้า',
+      'รายการสินค้า',
+      'ขนาดบรรจุ',
+      'ราคา/หน่วย (บาท)',
+      'น้ำหนัก (กก.)',
+      'ราคารวมรายการ (บาท)',
+      'น้ำหนักรวมทั้งบิล (กก.)',
+      'ยอดก่อน VAT (บาท)',
+      'VAT 7% (บาท)',
+      'ค่าจัดส่ง (บาท)',
+      'ยอดรวมทั้งบิล (บาท)',
+      'สถานะการชำระเงิน',
+      'สถานะการจัดส่ง',
+      'ขอใบกำกับภาษี',
+      'หมายเหตุ',
+    ];
+
+    let csv = headers.join(',') + '\n';
 
     filtered.forEach((o) => {
-      const itemsList = o.items.map((i) => `${i.productName} (${i.pricePerKg}B/kg x ${i.weightKg}kg)`).join('; ');
-      const row = [
-        `"${o.orderNumber}"`,
-        `"${formatThaiDateTime(o.createdAt)}"`,
-        `"${o.customer.name}"`,
-        `"${o.customer.phone}"`,
-        `"${o.customer.address.replace(/"/g, '""')}"`,
-        `"${itemsList}"`,
-        o.totalWeightKg,
-        o.totalAmount,
-        `"${o.paymentStatus}"`,
-        `"${(o.note || '').replace(/"/g, '""')}"`,
-      ].join(',');
-      csv += row + '\n';
+      const paymentLabel =
+        o.paymentStatus === 'paid'
+          ? 'ชำระแล้ว'
+          : o.paymentStatus === 'cod'
+          ? 'เก็บเงินปลายทาง (COD)'
+          : 'รอชำระ';
+
+      const deliveryLabel =
+        o.deliveryStatus === 'delivered'
+          ? 'จัดส่งแล้ว'
+          : o.deliveryStatus === 'shipped'
+          ? 'กำลังจัดส่ง'
+          : o.deliveryStatus === 'cancelled'
+          ? 'ยกเลิก'
+          : 'รอดำเนินการ';
+
+      const taxInvoiceLabel = o.taxInvoice?.isRequested ? 'ขอใบกำกับภาษี' : 'ไม่ระบุ';
+      const subtotal = o.subtotalAmount || (o.items ? o.items.reduce((s, it) => s + (it.totalPrice || 0), 0) : 0);
+      const vatVal = o.hasVat || (o.vatAmount && o.vatAmount > 0) ? (o.vatAmount || Math.round(subtotal * 0.07 * 100) / 100) : 0;
+      const shippingVal = o.shippingFee || 0;
+
+      if (o.items && o.items.length > 0) {
+        o.items.forEach((item, index) => {
+          const packLabel =
+            item.packSize === '500g'
+              ? '500 กรัม'
+              : item.packSize === '5kg'
+              ? '5 กิโลกรัม'
+              : '1 กิโลกรัม';
+
+          const row = [
+            `"${o.orderNumber}"`,
+            `"${formatThaiDateTime(o.createdAt)}"`,
+            `"${(o.customer?.name || '').replace(/"/g, '""')}"`,
+            `"${(o.customer?.phone || '').replace(/"/g, '""')}"`,
+            `"${(o.customer?.address || '').replace(/"/g, '""')}"`,
+            index + 1,
+            `"${(item.productName || '').replace(/"/g, '""')}"`,
+            `"${packLabel}"`,
+            item.pricePerKg,
+            item.weightKg,
+            item.totalPrice,
+            o.totalWeightKg,
+            subtotal,
+            vatVal,
+            shippingVal,
+            o.totalAmount,
+            `"${paymentLabel}"`,
+            `"${deliveryLabel}"`,
+            `"${taxInvoiceLabel}"`,
+            `"${(o.note || '').replace(/"/g, '""')}"`,
+          ].join(',');
+          csv += row + '\n';
+        });
+      } else {
+        // Fallback for order without items
+        const row = [
+          `"${o.orderNumber}"`,
+          `"${formatThaiDateTime(o.createdAt)}"`,
+          `"${(o.customer?.name || '').replace(/"/g, '""')}"`,
+          `"${(o.customer?.phone || '').replace(/"/g, '""')}"`,
+          `"${(o.customer?.address || '').replace(/"/g, '""')}"`,
+          '-',
+          '-',
+          '-',
+          0,
+          0,
+          0,
+          o.totalWeightKg,
+          subtotal,
+          vatVal,
+          shippingVal,
+          o.totalAmount,
+          `"${paymentLabel}"`,
+          `"${deliveryLabel}"`,
+          `"${taxInvoiceLabel}"`,
+          `"${(o.note || '').replace(/"/g, '""')}"`,
+        ].join(',');
+        csv += row + '\n';
+      }
     });
 
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `PurchaseOrders_${new Date().toISOString().slice(0, 10)}.csv`);
+    const fileNameDate = new Date().toISOString().slice(0, 10);
+    link.setAttribute('download', `Sumalee_Sales_Orders_${fileNameDate}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -145,15 +236,16 @@ export const OrderList: React.FC<OrderListProps> = ({
             />
           </div>
 
-          {/* Export CSV & Add button */}
+          {/* Export Excel & Add button */}
           <div className="flex items-center gap-2 shrink-0">
             <button
-              onClick={handleExportCSV}
+              onClick={handleExportExcel}
               disabled={filtered.length === 0}
-              className="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors border border-slate-200 inline-flex items-center gap-1.5 disabled:opacity-50"
+              title="ส่งออกไฟล์ Excel (.csv) แยกรายการสินค้าพร้อมราคา/หน่วย"
+              className="px-3.5 py-2 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-colors border border-emerald-200 inline-flex items-center gap-1.5 disabled:opacity-50 shadow-sm"
             >
-              <Download className="w-3.5 h-3.5" />
-              <span>ส่งออก CSV</span>
+              <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+              <span>ส่งออก Excel</span>
             </button>
             <button
               onClick={onOpenNewOrder}

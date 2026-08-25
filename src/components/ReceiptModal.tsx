@@ -33,7 +33,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between border-b border-slate-800 no-print print:hidden">
           <div className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-emerald-400" />
-            <h3 className="font-bold text-sm text-white">ใบสั่งซื้อ (Purchase Order) #{order.orderNumber}</h3>
+            <h3 className="font-bold text-sm text-white">ใบสั่งซื้อ PO #{order.orderNumber}</h3>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -81,7 +81,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             </div>
             <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-right sm:min-w-[210px] shrink-0">
               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                {order.taxInvoice?.isRequested ? 'ใบสั่งซื้อ / ใบกำกับภาษี' : 'ใบสั่งซื้อ / PURCHASE ORDER'}
+                ใบสั่งซื้อ PO
               </p>
               <p className="text-base font-black text-blue-700 font-mono mt-0.5">#{order.orderNumber}</p>
               <p className="text-[11px] text-slate-500 mt-1 flex items-center justify-end gap-1 font-mono">
@@ -184,9 +184,8 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           {/* Totals Box */}
           <div className="flex flex-col sm:flex-row justify-between items-end gap-4 bg-slate-900 text-white p-4 rounded-xl">
             <div className="text-xs text-slate-300 space-y-0.5">
-              <p>รวมน้ำหนักสินค้าทั้งหมด: <span className="font-bold text-white text-sm">{formatWeight(order.totalWeightKg)}</span></p>
-              <div className="flex items-center gap-2 text-[11px] text-slate-400">
-                <span>รวม {order.items.length} รายการสินค้า</span>
+              <div className="flex items-center gap-2 text-xs text-slate-300">
+                <span className="font-semibold text-white">รวม {order.items.length} รายการสินค้า</span>
                 {order.boxCount && (
                   <span className="bg-slate-800 text-emerald-300 font-bold px-2 py-0.5 rounded border border-slate-700">
                     📦 {order.boxCount} กล่อง
@@ -195,11 +194,21 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               </div>
             </div>
             <div className="text-right">
-              {order.shippingFee && order.shippingFee > 0 && (
+              {order.hasVat || (order.vatAmount && order.vatAmount > 0) ? (
                 <div className="text-[11px] text-slate-300 space-y-0.5 mb-1">
-                  <div>ราคาสินค้ารวม: {formatCurrency(order.items.reduce((sum, i) => sum + i.totalPrice, 0))}</div>
-                  <div>ค่าจัดส่ง: +{formatCurrency(order.shippingFee)}</div>
+                  <div>มูลค่าสินค้าก่อนภาษี: {formatCurrency(order.subtotalAmount || order.items.reduce((sum, i) => sum + i.totalPrice, 0))}</div>
+                  <div>ภาษีมูลค่าเพิ่ม VAT 7%: +{formatCurrency(order.vatAmount || (order.items.reduce((sum, i) => sum + i.totalPrice, 0) * 0.07))}</div>
+                  {order.shippingFee && order.shippingFee > 0 && (
+                    <div>ค่าจัดส่ง: +{formatCurrency(order.shippingFee)}</div>
+                  )}
                 </div>
+              ) : (
+                order.shippingFee && order.shippingFee > 0 && (
+                  <div className="text-[11px] text-slate-300 space-y-0.5 mb-1">
+                    <div>ราคาสินค้ารวม: {formatCurrency(order.items.reduce((sum, i) => sum + i.totalPrice, 0))}</div>
+                    <div>ค่าจัดส่ง: +{formatCurrency(order.shippingFee)}</div>
+                  </div>
+                )
               )}
               <span className="text-xs text-emerald-400 font-medium">ยอดรวมสุทธิทั้งสิ้น</span>
               <p className="text-2xl font-black text-emerald-300">{formatCurrency(order.totalAmount)}</p>

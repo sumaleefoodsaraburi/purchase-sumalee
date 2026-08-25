@@ -21,6 +21,7 @@ import {
   Truck,
   Box,
   DollarSign,
+  Percent,
 } from 'lucide-react';
 
 interface OrderFormModalProps {
@@ -56,6 +57,7 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
   // Shipping Fee & Box Count State
   const [shippingFee, setShippingFee] = useState<number | ''>('');
   const [boxCount, setBoxCount] = useState<number | ''>('');
+  const [hasVat, setHasVat] = useState(false);
 
   // Tax Invoice State
   const [requestTaxInvoice, setRequestTaxInvoice] = useState(false);
@@ -106,6 +108,11 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
 
       setShippingFee(editingOrder.shippingFee !== undefined ? editingOrder.shippingFee : '');
       setBoxCount(editingOrder.boxCount !== undefined ? editingOrder.boxCount : '');
+      setHasVat(
+        editingOrder.hasVat !== undefined
+          ? editingOrder.hasVat
+          : (editingOrder.vatAmount ? editingOrder.vatAmount > 0 : (editingOrder.taxInvoice?.isRequested || false))
+      );
 
       // Tax Invoice prefill
       if (editingOrder.taxInvoice?.isRequested) {
@@ -147,6 +154,7 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
     setNote('');
     setShippingFee('');
     setBoxCount('');
+    setHasVat(false);
     setRequestTaxInvoice(false);
     setTaxCompanyName('');
     setTaxId('');
@@ -220,16 +228,20 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
   const handleToggleTaxInvoice = () => {
     const next = !requestTaxInvoice;
     setRequestTaxInvoice(next);
-    if (next && !taxCompanyName) {
-      setTaxCompanyName(customerName);
+    if (next) {
+      setHasVat(true);
+      if (!taxCompanyName) {
+        setTaxCompanyName(customerName);
+      }
     }
   };
 
   // Totals
   const grandTotalWeight = items.reduce((sum, item) => sum + (Number(item.weightKg) || 0), 0);
   const itemsSubtotalAmount = items.reduce((sum, item) => sum + (Number(item.totalPrice) || 0), 0);
+  const vatAmount = hasVat ? Math.round(itemsSubtotalAmount * 0.07 * 100) / 100 : 0;
   const parsedShippingFee = Number(shippingFee) || 0;
-  const grandTotalAmount = itemsSubtotalAmount + parsedShippingFee;
+  const grandTotalAmount = Math.round((itemsSubtotalAmount + vatAmount + parsedShippingFee) * 100) / 100;
   const parsedBoxCount = Number(boxCount) > 0 ? Number(boxCount) : undefined;
 
   // Submit Handler
@@ -299,6 +311,10 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
         packSize: it.packSize || '1kg',
       })),
       totalWeightKg: grandTotalWeight,
+      subtotalAmount: itemsSubtotalAmount,
+      hasVat,
+      vatRate: hasVat ? 7 : undefined,
+      vatAmount: hasVat ? vatAmount : undefined,
       totalAmount: grandTotalAmount,
       shippingFee: parsedShippingFee > 0 ? parsedShippingFee : undefined,
       boxCount: parsedBoxCount,
@@ -682,14 +698,35 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
             </div>
           </div>
 
-          {/* SECTION: SHIPPING FEE & BOX COUNT */}
-          <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2">
-            <div className="flex items-center gap-1.5 border-b border-slate-200 pb-2">
-              <Truck className="w-4 h-4 text-emerald-600" />
-              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                ข้อมูลการจัดส่ง (จำนวนกล่อง และค่าจัดส่ง)
-              </span>
+          {/* SECTION: VAT 7%, SHIPPING FEE & BOX COUNT */}
+          <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-3">
+            {/* VAT 7% Option */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-2.5">
+              <div className="flex items-center gap-2">
+                <Percent className="w-4 h-4 text-emerald-600 shrink-0" />
+                <div>
+                  <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+                    ภาษีมูลค่าเพิ่ม VAT 7%
+                  </span>
+                  <span className="text-[11px] text-slate-500">
+                    {hasVat ? `คิด VAT 7% เป็นเงิน +${formatCurrency(vatAmount)}` : 'เลือกเพื่อคิดภาษีมูลค่าเพิ่ม 7% จากราคาสินค้า'}
+                  </span>
+                </div>
+              </div>
+              <label className="inline-flex items-center gap-2 cursor-pointer bg-white px-3 py-1.5 rounded-lg border border-slate-300 hover:border-emerald-500 transition-all shadow-xs select-none">
+                <input
+                  type="checkbox"
+                  checked={hasVat}
+                  onChange={(e) => setHasVat(e.target.checked)}
+                  className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+                />
+                <span className="text-xs font-bold text-slate-800">
+                  {hasVat ? '✓ คิด VAT 7%' : 'ไม่คิด VAT (ยอดปกติ)'}
+                </span>
+              </label>
             </div>
+
+            {/* Box Count & Shipping Fee */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
@@ -732,6 +769,11 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
                 <span className="text-xs bg-emerald-800 text-emerald-100 px-2.5 py-0.5 rounded-full font-medium">
                   น้ำหนักรวม: {formatWeight(grandTotalWeight)}
                 </span>
+                {hasVat && (
+                  <span className="text-xs bg-emerald-700 text-emerald-100 px-2.5 py-0.5 rounded-full font-semibold border border-emerald-500">
+                    ✓ รวม VAT 7%
+                  </span>
+                )}
                 {parsedBoxCount && (
                   <span className="text-xs bg-emerald-800 text-emerald-100 px-2.5 py-0.5 rounded-full font-medium">
                     📦 {parsedBoxCount} กล่อง
@@ -740,12 +782,17 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
               </div>
             </div>
             <div className="text-right">
-              {parsedShippingFee > 0 && (
-                <div className="text-[11px] text-emerald-200 space-y-0.5 mb-1">
-                  <div>ราคาสินค้ารวม: {formatCurrency(itemsSubtotalAmount)}</div>
+              <div className="text-[11px] text-emerald-200 space-y-0.5 mb-1">
+                <div>ราคาสินค้ารวม: {formatCurrency(itemsSubtotalAmount)}</div>
+                {hasVat && (
+                  <div className="font-semibold text-emerald-300">
+                    ภาษีมูลค่าเพิ่ม VAT 7%: +{formatCurrency(vatAmount)}
+                  </div>
+                )}
+                {parsedShippingFee > 0 && (
                   <div>ค่าจัดส่ง: +{formatCurrency(parsedShippingFee)}</div>
-                </div>
-              )}
+                )}
+              </div>
               <span className="text-xs text-emerald-300 block">ราคารวมทั้งสิ้น</span>
               <span className="text-2xl font-black text-emerald-300">
                 {formatCurrency(grandTotalAmount)}

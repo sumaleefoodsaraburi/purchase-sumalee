@@ -38,6 +38,10 @@ export interface PurchaseOrder {
   boxCount?: number;    // จำนวนกล่อง (กล่อง)
   note?: string;
   taxInvoice?: TaxInvoiceInfo;
+  hasVat?: boolean;      // คิด VAT 7%
+  vatRate?: number;      // อัตรา VAT เช่น 7
+  vatAmount?: number;    // จำนวนเงินภาษีมูลค่าเพิ่ม (บาท)
+  subtotalAmount?: number; // ยอดรวมสินค้าก่อนภาษี (บาท)
 }
 
 export type SummaryPeriod = 'today' | '7days' | '30days' | 'all';

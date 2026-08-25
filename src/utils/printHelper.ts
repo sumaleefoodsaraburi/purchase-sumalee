@@ -235,7 +235,7 @@ export function getReceiptHtml(order: PurchaseOrder): string {
             <div class="company-phone">โทร. 0811238415 (081-123-8415)</div>
           </div>
           <div class="po-badge-box">
-            <div class="po-title">${order.taxInvoice?.isRequested ? 'ใบสั่งซื้อ / ใบกำกับภาษี (TAX INVOICE)' : 'ใบสั่งซื้อ / PURCHASE ORDER'}</div>
+            <div class="po-title">ใบสั่งซื้อ PO</div>
             <div class="po-number">#${order.orderNumber}</div>
             <div class="po-date">วันที่: ${formatThaiDateTime(order.createdAt)}</div>
           </div>
@@ -292,19 +292,28 @@ export function getReceiptHtml(order: PurchaseOrder): string {
         <!-- TOTALS -->
         <div class="summary-box">
           <div class="summary-left">
-            <div>รวมน้ำหนักสินค้าทั้งหมด: <strong style="color: #ffffff; font-size: 14px;">${formatWeight(
-              order.totalWeightKg
-            )}</strong></div>
-            <div style="font-size: 11px; margin-top: 2px;">
-              จำนวนทั้งหมด ${order.items.length} รายการ
-              ${order.boxCount ? `<span style="margin-left:8px; background:#334155; padding:1px 6px; border-radius:4px; color:#6ee7b7; font-weight:bold;">📦 ${order.boxCount} กล่อง</span>` : ''}
-            </div>
+            <div style="font-size: 13px; font-weight: 700; color: #ffffff;">จำนวนทั้งหมด ${order.items.length} รายการ</div>
+            ${order.boxCount ? `<div style="font-size: 11px; margin-top: 4px;"><span style="background:#334155; padding:2px 8px; border-radius:4px; color:#6ee7b7; font-weight:bold;">📦 ${order.boxCount} กล่อง</span></div>` : ''}
           </div>
           <div class="summary-total">
             ${
+              order.hasVat || (order.vatAmount && order.vatAmount > 0)
+                ? `<div style="font-size: 11px; color: #cbd5e1; margin-bottom: 2px;">
+                    มูลค่าสินค้าก่อนภาษี: ${formatCurrency(order.subtotalAmount || order.items.reduce((sum, i) => sum + i.totalPrice, 0))}
+                   </div>
+                   <div style="font-size: 11px; color: #cbd5e1; margin-bottom: 2px;">
+                    ภาษีมูลค่าเพิ่ม VAT 7%: +${formatCurrency(order.vatAmount || (order.items.reduce((sum, i) => sum + i.totalPrice, 0) * 0.07))}
+                   </div>`
+                : (order.shippingFee && order.shippingFee > 0
+                    ? `<div style="font-size: 11px; color: #cbd5e1; margin-bottom: 2px;">
+                        ราคาสินค้า: ${formatCurrency(order.items.reduce((sum, i) => sum + i.totalPrice, 0))}
+                       </div>`
+                    : '')
+            }
+            ${
               order.shippingFee && order.shippingFee > 0
                 ? `<div style="font-size: 11px; color: #cbd5e1; margin-bottom: 2px;">
-                    ราคาสินค้า: ${formatCurrency(order.items.reduce((sum, i) => sum + i.totalPrice, 0))} | ค่าจัดส่ง: +${formatCurrency(order.shippingFee)}
+                    ค่าจัดส่ง: +${formatCurrency(order.shippingFee)}
                    </div>`
                 : ''
             }
