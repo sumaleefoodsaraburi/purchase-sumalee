@@ -197,10 +197,22 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               {order.hasVat || (order.vatAmount && order.vatAmount > 0) ? (
                 <div className="text-[11px] text-slate-300 space-y-0.5 mb-1">
                   <div>มูลค่าสินค้าก่อนภาษี: {formatCurrency(order.subtotalAmount || order.items.reduce((sum, i) => sum + i.totalPrice, 0))}</div>
-                  <div>ภาษีมูลค่าเพิ่ม VAT 7%: +{formatCurrency(order.vatAmount || (order.items.reduce((sum, i) => sum + i.totalPrice, 0) * 0.07))}</div>
                   {order.shippingFee && order.shippingFee > 0 && (
                     <div>ค่าจัดส่ง: +{formatCurrency(order.shippingFee)}</div>
                   )}
+                  <div>
+                    ภาษีมูลค่าเพิ่ม VAT 7%: +
+                    {formatCurrency(
+                      order.vatAmount !== undefined
+                        ? order.vatAmount
+                        : Math.round(
+                            ((order.subtotalAmount || order.items.reduce((sum, i) => sum + i.totalPrice, 0)) +
+                              (order.shippingFee || 0)) *
+                              0.07 *
+                              100
+                          ) / 100
+                    )}
+                  </div>
                 </div>
               ) : (
                 order.shippingFee && order.shippingFee > 0 && (

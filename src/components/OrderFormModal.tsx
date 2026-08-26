@@ -239,9 +239,10 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
   // Totals
   const grandTotalWeight = items.reduce((sum, item) => sum + (Number(item.weightKg) || 0), 0);
   const itemsSubtotalAmount = items.reduce((sum, item) => sum + (Number(item.totalPrice) || 0), 0);
-  const vatAmount = hasVat ? Math.round(itemsSubtotalAmount * 0.07 * 100) / 100 : 0;
   const parsedShippingFee = Number(shippingFee) || 0;
-  const grandTotalAmount = Math.round((itemsSubtotalAmount + vatAmount + parsedShippingFee) * 100) / 100;
+  const taxableBase = itemsSubtotalAmount + parsedShippingFee;
+  const vatAmount = hasVat ? Math.round(taxableBase * 0.07 * 100) / 100 : 0;
+  const grandTotalAmount = Math.round((taxableBase + vatAmount) * 100) / 100;
   const parsedBoxCount = Number(boxCount) > 0 ? Number(boxCount) : undefined;
 
   // Submit Handler
@@ -709,7 +710,9 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
                     ภาษีมูลค่าเพิ่ม VAT 7%
                   </span>
                   <span className="text-[11px] text-slate-500">
-                    {hasVat ? `คิด VAT 7% เป็นเงิน +${formatCurrency(vatAmount)}` : 'เลือกเพื่อคิดภาษีมูลค่าเพิ่ม 7% จากราคาสินค้า'}
+                    {hasVat
+                      ? `คิด VAT 7% (รวมค่าส่ง) เป็นเงิน +${formatCurrency(vatAmount)}`
+                      : 'เลือกเพื่อคิดภาษีมูลค่าเพิ่ม 7% จากราคาสินค้าและค่าจัดส่ง'}
                   </span>
                 </div>
               </div>
@@ -784,13 +787,13 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
             <div className="text-right">
               <div className="text-[11px] text-emerald-200 space-y-0.5 mb-1">
                 <div>ราคาสินค้ารวม: {formatCurrency(itemsSubtotalAmount)}</div>
-                {hasVat && (
-                  <div className="font-semibold text-emerald-300">
-                    ภาษีมูลค่าเพิ่ม VAT 7%: +{formatCurrency(vatAmount)}
-                  </div>
-                )}
                 {parsedShippingFee > 0 && (
                   <div>ค่าจัดส่ง: +{formatCurrency(parsedShippingFee)}</div>
+                )}
+                {hasVat && (
+                  <div className="font-semibold text-emerald-300">
+                    ภาษีมูลค่าเพิ่ม VAT 7% (รวมค่าส่ง): +{formatCurrency(vatAmount)}
+                  </div>
                 )}
               </div>
               <span className="text-xs text-emerald-300 block">ราคารวมทั้งสิ้น</span>

@@ -298,24 +298,34 @@ export function getReceiptHtml(order: PurchaseOrder): string {
           <div class="summary-total">
             ${
               order.hasVat || (order.vatAmount && order.vatAmount > 0)
-                ? `<div style="font-size: 11px; color: #cbd5e1; margin-bottom: 2px;">
-                    มูลค่าสินค้าก่อนภาษี: ${formatCurrency(order.subtotalAmount || order.items.reduce((sum, i) => sum + i.totalPrice, 0))}
-                   </div>
-                   <div style="font-size: 11px; color: #cbd5e1; margin-bottom: 2px;">
-                    ภาษีมูลค่าเพิ่ม VAT 7%: +${formatCurrency(order.vatAmount || (order.items.reduce((sum, i) => sum + i.totalPrice, 0) * 0.07))}
-                   </div>`
+                ? (() => {
+                    const subtotal = order.subtotalAmount || order.items.reduce((sum, i) => sum + i.totalPrice, 0);
+                    const shipping = order.shippingFee || 0;
+                    const calculatedVat = order.vatAmount !== undefined ? order.vatAmount : Math.round((subtotal + shipping) * 0.07 * 100) / 100;
+                    return `
+                      <div style="font-size: 11px; color: #cbd5e1; margin-bottom: 2px;">
+                        มูลค่าสินค้าก่อนภาษี: ${formatCurrency(subtotal)}
+                      </div>
+                      ${
+                        shipping > 0
+                          ? `<div style="font-size: 11px; color: #cbd5e1; margin-bottom: 2px;">
+                              ค่าจัดส่ง: +${formatCurrency(shipping)}
+                            </div>`
+                          : ''
+                      }
+                      <div style="font-size: 11px; color: #cbd5e1; margin-bottom: 2px;">
+                        ภาษีมูลค่าเพิ่ม VAT 7%: +${formatCurrency(calculatedVat)}
+                      </div>
+                    `;
+                  })()
                 : (order.shippingFee && order.shippingFee > 0
                     ? `<div style="font-size: 11px; color: #cbd5e1; margin-bottom: 2px;">
                         ราคาสินค้า: ${formatCurrency(order.items.reduce((sum, i) => sum + i.totalPrice, 0))}
+                       </div>
+                       <div style="font-size: 11px; color: #cbd5e1; margin-bottom: 2px;">
+                        ค่าจัดส่ง: +${formatCurrency(order.shippingFee)}
                        </div>`
                     : '')
-            }
-            ${
-              order.shippingFee && order.shippingFee > 0
-                ? `<div style="font-size: 11px; color: #cbd5e1; margin-bottom: 2px;">
-                    ค่าจัดส่ง: +${formatCurrency(order.shippingFee)}
-                   </div>`
-                : ''
             }
             <div class="summary-total-label">ยอดรวมสุทธิทั้งสิ้น</div>
             <div class="summary-total-amount">${formatCurrency(order.totalAmount)}</div>

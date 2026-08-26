@@ -33,7 +33,12 @@ import {
   Layers,
   Sparkles,
   Check,
+  Users,
+  Repeat,
+  UserPlus,
 } from 'lucide-react';
+import { getAllCustomerStats } from '../utils/customerAnalytics';
+
 import {
   ResponsiveContainer,
   BarChart,
@@ -50,6 +55,7 @@ interface SalesSummaryProps {
   orders: PurchaseOrder[];
   onOpenNewOrder: () => void;
   onViewOrdersTab: () => void;
+  onViewCustomersTab?: () => void;
   onEditOrder?: (order: PurchaseOrder) => void;
   onDeleteOrder?: (id: string) => void;
   onViewReceipt?: (order: PurchaseOrder) => void;
@@ -61,6 +67,7 @@ export const SalesSummary: React.FC<SalesSummaryProps> = ({
   orders,
   onOpenNewOrder,
   onViewOrdersTab,
+  onViewCustomersTab,
   onEditOrder,
   onDeleteOrder,
   onViewReceipt,
@@ -70,6 +77,13 @@ export const SalesSummary: React.FC<SalesSummaryProps> = ({
   const [selectedMonthKey, setSelectedMonthKey] = useState<string>('all');
   const [orderToDelete, setOrderToDelete] = useState<PurchaseOrder | null>(null);
   const [isDailyWeightModalOpen, setIsDailyWeightModalOpen] = useState<boolean>(false);
+
+  // Customer Stats
+  const allCustomerStats = getAllCustomerStats(orders);
+  const totalCustomers = allCustomerStats.length;
+  const repeatCustomers = allCustomerStats.filter(c => c.isRepeatCustomer).length;
+  const newCustomers = totalCustomers - repeatCustomers;
+  const repeatRate = totalCustomers > 0 ? Math.round((repeatCustomers / totalCustomers) * 1000) / 10 : 0;
 
   // Available months list
   const availableMonths = getAvailableMonths(orders);
@@ -408,7 +422,45 @@ export const SalesSummary: React.FC<SalesSummaryProps> = ({
         </div>
       </div>
 
+      {/* 2.5 CUSTOMER INSIGHTS BANNER (สรุปข้อมูลลูกค้า & อัตราการซื้อซ้ำ) */}
+      <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 rounded-2xl p-4 sm:p-5 text-white shadow-md border border-blue-800/40">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 bg-blue-500/20 text-blue-300 rounded-lg border border-blue-400/30">
+                <Users className="w-4 h-4" />
+              </span>
+              <h3 className="font-bold text-sm sm:text-base text-white">
+                สรุปข้อมูลลูกค้า & อัตราการซื้อซ้ำ (Customer Overview)
+              </h3>
+            </div>
+            <p className="text-xs text-blue-200/80">
+              วิเคราะห์ฐานลูกค้า {totalCustomers} ราย: ลูกค้าเก่าซื้อซ้ำ {repeatCustomers} ราย ({repeatRate}%) และลูกค้าใหม่ {newCustomers} ราย
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700 text-xs">
+              <Repeat className="w-3.5 h-3.5 text-emerald-400" />
+              <span>อัตราซื้อซ้ำ:</span>
+              <span className="font-black text-emerald-400 font-mono">{repeatRate}%</span>
+            </div>
+
+            {onViewCustomersTab && (
+              <button
+                onClick={onViewCustomersTab}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-900 bg-emerald-400 hover:bg-emerald-300 rounded-xl shadow-md transition-all hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <span>ดูสรุปและวิเคราะห์ข้อมูลลูกค้าฉบับเต็ม</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* 3. TOP SELLING PRODUCTS & RECENT ORDERS SNIPPET */}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* TOP PRODUCTS */}

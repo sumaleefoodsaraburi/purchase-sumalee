@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { PurchaseOrder, StockEntry } from './types';
 import { loadOrders, saveOrders, resetOrdersToDefault, SAMPLE_ORDERS } from './data/sampleOrders';
 import {
@@ -24,13 +24,16 @@ import { ReceiptModal } from './components/ReceiptModal';
 import { ShippingLabelModal } from './components/ShippingLabelModal';
 import { DailyWeightSummaryModal } from './components/DailyWeightSummaryModal';
 import { StockManagementModal } from './components/StockManagementModal';
-import { BarChart2, ListFilter, PlusCircle, CheckCircle, Wifi, CloudCheck, Scale } from 'lucide-react';
+import { CustomerSummary } from './components/CustomerSummary';
+import { BarChart2, ListFilter, PlusCircle, CheckCircle, Wifi, CloudCheck, Scale, Users } from 'lucide-react';
+import { normalizeCustomerKey } from './utils/customerAnalytics';
 
 export default function App() {
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [stockEntries, setStockEntries] = useState<StockEntry[]>([]);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'orders'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'customers' | 'orders'>('dashboard');
   const [isSyncing, setIsSyncing] = useState(true);
+
 
   // Modal states
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -229,6 +232,11 @@ export default function App() {
     setShippingLabelOrder(order);
   };
 
+  // Unique customer count
+  const uniqueCustomerCount = useMemo(() => {
+    return new Set(orders.map((o) => normalizeCustomerKey(o.customer.phone, o.customer.name))).size;
+  }, [orders]);
+
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 font-sans antialiased flex flex-col">
       
@@ -237,9 +245,9 @@ export default function App() {
         onOpenNewOrder={handleOpenNewOrder}
         onOpenStockManagement={() => setIsStockModalOpen(true)}
         onOpenDailyWeightSummary={() => setIsDailyWeightModalOpen(true)}
+        onOpenCustomerSummary={() => setActiveTab('customers')}
         totalOrdersCount={orders.length}
       />
-
 
       {/* TOAST NOTIFICATION */}
       {toastMessage && (
@@ -253,7 +261,7 @@ export default function App() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         
         {/* Navigation Tabs Bar */}
-        <div className="bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-1.5">
+        <div className="bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap items-center gap-1.5">
           <button
             onClick={() => setActiveTab('dashboard')}
             className={`flex-1 sm:flex-initial px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
@@ -267,6 +275,18 @@ export default function App() {
           </button>
 
           <button
+            onClick={() => setActiveTab('customers')}
+            className={`flex-1 sm:flex-initial px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+              activeTab === 'customers'
+                ? 'bg-slate-900 text-white shadow-md'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <Users className="w-4 h-4 text-blue-400" />
+            <span>สรุปข้อมูลลูกค้า & ซื้อซ้ำ ({uniqueCustomerCount} ราย)</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('orders')}
             className={`flex-1 sm:flex-initial px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
               activeTab === 'orders'
@@ -274,7 +294,7 @@ export default function App() {
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
-            <ListFilter className="w-4 h-4 text-blue-400" />
+            <ListFilter className="w-4 h-4 text-purple-400" />
             <span>รายการใบสั่งซื้อทั้งหมด ({orders.length})</span>
           </button>
         </div>
@@ -285,11 +305,18 @@ export default function App() {
             orders={orders}
             onOpenNewOrder={handleOpenNewOrder}
             onViewOrdersTab={() => setActiveTab('orders')}
+            onViewCustomersTab={() => setActiveTab('customers')}
             onEditOrder={handleOpenEditOrder}
             onDeleteOrder={handleDeleteOrder}
             onViewReceipt={handleViewReceipt}
             onViewShippingLabel={handleViewShippingLabel}
             onOpenStockModal={() => setIsStockModalOpen(true)}
+          />
+        ) : activeTab === 'customers' ? (
+          <CustomerSummary
+            orders={orders}
+            onViewReceipt={handleViewReceipt}
+            onViewShippingLabel={handleViewShippingLabel}
           />
         ) : (
           <OrderList
@@ -301,6 +328,7 @@ export default function App() {
             onViewShippingLabel={handleViewShippingLabel}
           />
         )}
+
 
       </main>
 

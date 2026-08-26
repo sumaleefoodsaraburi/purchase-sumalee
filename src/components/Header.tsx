@@ -1,11 +1,12 @@
 import React from 'react';
-import { Plus, Calendar, MapPin, Phone, Database, Scale, BarChart2 } from 'lucide-react';
+import { Plus, Calendar, MapPin, Phone, Database, Scale, BarChart2, Users } from 'lucide-react';
 import { formatThaiDateTime } from '../utils/formatters';
 
 interface HeaderProps {
   onOpenNewOrder: () => void;
   onOpenStockManagement?: () => void;
   onOpenDailyWeightSummary?: () => void;
+  onOpenCustomerSummary?: () => void;
   totalOrdersCount: number;
 }
 
@@ -13,6 +14,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenNewOrder,
   onOpenStockManagement,
   onOpenDailyWeightSummary,
+  onOpenCustomerSummary,
   totalOrdersCount,
 }) => {
   const nowIso = new Date().toISOString();
@@ -94,6 +96,18 @@ export const Header: React.FC<HeaderProps> = ({
                 <span>สรุปยอดขายรายวัน</span>
               </button>
             )}
+
+            {/* 4. ปุ่มสรุปข้อมูลลูกค้า */}
+            {onOpenCustomerSummary && (
+              <button
+                onClick={onOpenCustomerSummary}
+                className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-blue-200 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <Users className="w-4 h-4 text-blue-400" />
+                <span>สรุปข้อมูลลูกค้า</span>
+              </button>
+            )}
+
           </div>
 
         </div>

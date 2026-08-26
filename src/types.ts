@@ -97,3 +97,40 @@ export interface SalesMetrics {
   totalWeightKg: number;
   averageOrderValue: number;
 }
+
+export interface CustomerStat {
+  id: string;
+  name: string;
+  phone: string;
+  address: string;
+  totalOrdersCount: number;
+  totalRevenue: number;
+  totalWeightKg: number;
+  firstOrderDate: string;
+  lastOrderDate: string;
+  repeatTimes: number; // ซื้อซ้ำกี่ครั้งแล้ว (เช่น สั่ง 1 ครั้ง = 0 ครั้ง, สั่ง 3 ครั้ง = ซื้อซ้ำ 2 ครั้ง)
+  isRepeatCustomer: boolean; // สั่งตั้งแต่ 2 ครั้งขึ้นไป
+  tier: 'VIP (5+ ครั้ง)' | 'ประจำ (3-4 ครั้ง)' | 'ซื้อซ้ำ (2 ครั้ง)' | 'ใหม่ (1 ครั้ง)';
+  orders: PurchaseOrder[];
+  ordersInPeriodCount?: number;
+  revenueInPeriod?: number;
+  weightInPeriod?: number;
+  isNewInPeriod?: boolean;
+  isRepeatInPeriod?: boolean;
+}
+
+export interface CustomerPeriodSummary {
+  periodKey: string;
+  periodLabel: string;
+  startDate?: string;
+  endDate?: string;
+  totalCustomers: number;
+  newCustomers: number;
+  repeatCustomers: number;
+  repeatRate: number; // %
+  totalOrders: number;
+  totalRevenue: number;
+  totalWeightKg: number;
+  avgRevenuePerCustomer: number;
+}
+

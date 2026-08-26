@@ -141,8 +141,11 @@ export const OrderList: React.FC<OrderListProps> = ({
 
       const taxInvoiceLabel = o.taxInvoice?.isRequested ? 'ขอใบกำกับภาษี' : 'ไม่ระบุ';
       const subtotal = o.subtotalAmount || (o.items ? o.items.reduce((s, it) => s + (it.totalPrice || 0), 0) : 0);
-      const vatVal = o.hasVat || (o.vatAmount && o.vatAmount > 0) ? (o.vatAmount || Math.round(subtotal * 0.07 * 100) / 100) : 0;
       const shippingVal = o.shippingFee || 0;
+      const vatVal =
+        o.hasVat || (o.vatAmount && o.vatAmount > 0)
+          ? (o.vatAmount !== undefined ? o.vatAmount : Math.round((subtotal + shippingVal) * 0.07 * 100) / 100)
+          : 0;
 
       if (o.items && o.items.length > 0) {
         o.items.forEach((item, index) => {
