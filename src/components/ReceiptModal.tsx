@@ -167,7 +167,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                         <div className="font-semibold text-slate-900 flex items-center gap-2">
                           <span>{item.productName}</span>
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
-                            {item.packSize === '500g' ? 'แพ็ค 500g' : item.packSize === '5kg' ? 'แพ็ค 5kg' : 'แพ็ค 1 กก.'}
+                            {item.packSize === '100g' ? 'แพ็ค 100g' : item.packSize === '500g' ? 'แพ็ค 500g' : item.packSize === '5kg' ? 'แพ็ค 5kg' : 'แพ็ค 1 กก.'}
                           </span>
                         </div>
                       </td>

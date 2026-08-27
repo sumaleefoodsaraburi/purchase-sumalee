@@ -4,7 +4,7 @@ export interface OrderItem {
   pricePerKg: number; // ราคาต่อ กก. (บาท)
   weightKg: number;    // จำนวน (กก.)
   totalPrice: number;  // ราคารวม = pricePerKg * weightKg
-  packSize?: string;   // e.g. '500g', '1kg', '5kg'
+  packSize?: string;   // e.g. '100g', '500g', '1kg', '5kg'
 }
 
 export interface CustomerInfo {

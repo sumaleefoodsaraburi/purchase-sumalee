@@ -7,19 +7,21 @@ export const FACTORY_STOCK_PRESET_NAMES = [
   'หอมเจียวยางแดง 5กก (รหัส OF01)',
   'หอมเจียวยางเขียว 5กก (รหัส OF02)',
   'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)',
+  'หอมเจียวยางเขียว 100กรัม (รหัส OF02.02)',
   'หอมเจียวC 5กก (รหัส OF03)',
 ];
 
 export const STOCK_CUTOFF_DATE = '2026-08-01';
 
 /**
- * Normalize product names to match the 4 factory stock products.
- * Returns null if the product is not one of the 4 stock products.
+ * Normalize product names to match the factory stock products.
+ * Returns null if the product is not one of the stock products.
  */
 export function normalizeProductName(name: string): string | null {
   if (!name) return null;
   const t = name.trim();
   if (t.includes('OF01') || t.includes('ยางแดง')) return 'หอมเจียวยางแดง 5กก (รหัส OF01)';
+  if (t.includes('OF02.02') || t.includes('100กรัม') || t.includes('100 กรัม')) return 'หอมเจียวยางเขียว 100กรัม (รหัส OF02.02)';
   if (t.includes('OF02.01') || t.includes('500กรัม') || t.includes('500 กรัม')) return 'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)';
   if (t.includes('OF02') || t.includes('ยางเขียว')) return 'หอมเจียวยางเขียว 5กก (รหัส OF02)';
   if (t.includes('OF03') || t.includes('แป้งหนา') || t.includes('หอมเจียวC') || t.includes('หอมเจียว C') || t.includes('หอมเจียว c')) return 'หอมเจียวC 5กก (รหัส OF03)';

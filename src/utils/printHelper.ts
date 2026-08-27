@@ -8,7 +8,14 @@ export function getReceiptHtml(order: PurchaseOrder): string {
   const itemsRows = order.items
     .map(
       (item, idx) => {
-        const packLabel = item.packSize === '500g' ? ' <span style="font-size:10px; background:#f1f5f9; padding:2px 6px; border-radius:4px; color:#475569; border:1px solid #cbd5e1;">แพ็ค 500g</span>' : item.packSize === '5kg' ? ' <span style="font-size:10px; background:#f1f5f9; padding:2px 6px; border-radius:4px; color:#475569; border:1px solid #cbd5e1;">แพ็ค 5kg</span>' : ' <span style="font-size:10px; background:#f1f5f9; padding:2px 6px; border-radius:4px; color:#475569; border:1px solid #cbd5e1;">แพ็ค 1 กก.</span>';
+        const packLabel =
+          item.packSize === '100g'
+            ? ' <span style="font-size:10px; background:#f1f5f9; padding:2px 6px; border-radius:4px; color:#475569; border:1px solid #cbd5e1;">แพ็ค 100g</span>'
+            : item.packSize === '500g'
+            ? ' <span style="font-size:10px; background:#f1f5f9; padding:2px 6px; border-radius:4px; color:#475569; border:1px solid #cbd5e1;">แพ็ค 500g</span>'
+            : item.packSize === '5kg'
+            ? ' <span style="font-size:10px; background:#f1f5f9; padding:2px 6px; border-radius:4px; color:#475569; border:1px solid #cbd5e1;">แพ็ค 5kg</span>'
+            : ' <span style="font-size:10px; background:#f1f5f9; padding:2px 6px; border-radius:4px; color:#475569; border:1px solid #cbd5e1;">แพ็ค 1 กก.</span>';
         return `
         <tr>
           <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: center; color: #64748b;">${idx + 1}</td>

@@ -198,7 +198,14 @@ export const CustomerOrderHistoryModal: React.FC<CustomerOrderHistoryModalProps>
                       <div className="space-y-1">
                         {ord.items.map((it, itIdx) => (
                           <div key={itIdx} className="flex items-center justify-between text-slate-700">
-                            <span className="truncate">• {it.productName}</span>
+                            <span className="truncate flex items-center gap-1.5">
+                              <span>• {it.productName}</span>
+                              {it.packSize && (
+                                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+                                  {it.packSize === '100g' ? '100g' : it.packSize === '500g' ? '500g' : it.packSize === '5kg' ? '5kg' : '1 กก.'}
+                                </span>
+                              )}
+                            </span>
                             <span className="font-semibold shrink-0 ml-2 font-mono text-slate-900">
                               {it.weightKg} กก. × {it.pricePerKg}฿ = {formatCurrency(it.totalPrice)}
                             </span>

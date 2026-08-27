@@ -222,6 +222,13 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
   const handleSelectPreset = (id: string, presetName: string, defaultPrice: number) => {
     updateItemField(id, 'productName', presetName);
     updateItemField(id, 'pricePerKg', defaultPrice);
+    if (presetName.includes('100กรัม') || presetName.includes('100 กรัม') || presetName.includes('100g')) {
+      updateItemField(id, 'packSize', '100g');
+    } else if (presetName.includes('500กรัม') || presetName.includes('500 กรัม') || presetName.includes('500g')) {
+      updateItemField(id, 'packSize', '500g');
+    } else if (presetName.includes('5กก') || presetName.includes('5 กก') || presetName.includes('5kg')) {
+      updateItemField(id, 'packSize', '5kg');
+    }
   };
 
   // Toggle Tax Invoice
@@ -555,7 +562,7 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
                 <span>คลิกเพื่อเลือกสินค้าด่วน (หรือพิมพ์เองได้):</span>
               </p>
               <div className="flex flex-wrap gap-1.5">
-                {POPULAR_PRODUCTS_PRESETS.slice(0, 6).map((preset, pIdx) => (
+                {POPULAR_PRODUCTS_PRESETS.slice(0, 10).map((preset, pIdx) => (
                   <button
                     key={pIdx}
                     type="button"
@@ -651,14 +658,14 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
                       <div className="inline-flex rounded-lg p-0.5 bg-slate-100 border border-slate-200 gap-0.5">
                         <button
                           type="button"
-                          onClick={() => updateItemField(item.id, 'packSize', '1kg')}
+                          onClick={() => updateItemField(item.id, 'packSize', '100g')}
                           className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
-                            (!item.packSize || item.packSize === '1kg')
-                              ? 'bg-white text-slate-900 font-bold shadow-xs border border-slate-200'
+                            item.packSize === '100g'
+                              ? 'bg-emerald-600 text-white font-bold shadow-xs'
                               : 'text-slate-600 hover:text-slate-900'
                           }`}
                         >
-                          แพ็ค 1 กก.
+                          แพ็ค 100 กรัม
                         </button>
                         <button
                           type="button"
@@ -670,6 +677,17 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
                           }`}
                         >
                           แพ็ค 500 กรัม
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateItemField(item.id, 'packSize', '1kg')}
+                          className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
+                            (!item.packSize || item.packSize === '1kg')
+                              ? 'bg-white text-slate-900 font-bold shadow-xs border border-slate-200'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          แพ็ค 1 กก.
                         </button>
                         <button
                           type="button"

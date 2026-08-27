@@ -150,7 +150,9 @@ export const OrderList: React.FC<OrderListProps> = ({
       if (o.items && o.items.length > 0) {
         o.items.forEach((item, index) => {
           const packLabel =
-            item.packSize === '500g'
+            item.packSize === '100g'
+              ? '100 กรัม'
+              : item.packSize === '500g'
               ? '500 กรัม'
               : item.packSize === '5kg'
               ? '5 กิโลกรัม'
@@ -499,7 +501,7 @@ export const OrderList: React.FC<OrderListProps> = ({
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="font-semibold text-slate-800">{it.productName}</span>
                             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
-                              {it.packSize === '500g' ? 'แพ็ค 500g' : it.packSize === '5kg' ? 'แพ็ค 5kg' : 'แพ็ค 1 กก.'}
+                              {it.packSize === '100g' ? 'แพ็ค 100g' : it.packSize === '500g' ? 'แพ็ค 500g' : it.packSize === '5kg' ? 'แพ็ค 5kg' : 'แพ็ค 1 กก.'}
                             </span>
                           </div>
                           <span className="text-slate-500 text-[11px] shrink-0">
