@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { PurchaseOrder } from '../types';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 import { DailyWeightSummaryModal } from './DailyWeightSummaryModal';
+import { MonthlyProductSalesSummary } from './MonthlyProductSalesSummary';
 import {
   formatCurrency,
   formatWeight,
@@ -328,6 +329,13 @@ export const SalesSummary: React.FC<SalesSummaryProps> = ({
         </div>
 
       </div>
+
+      {/* 2. MONTHLY PRODUCT SALES SUMMARY COMPONENT (สรุปยอดขายตามสินค้า รายเดือน) */}
+      <MonthlyProductSalesSummary
+        orders={orders}
+        selectedMonthKey={selectedMonthKey}
+        onSelectMonth={(mKey) => setSelectedMonthKey(mKey)}
+      />
 
 
 

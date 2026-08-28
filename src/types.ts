@@ -98,6 +98,14 @@ export interface SalesMetrics {
   averageOrderValue: number;
 }
 
+export interface CustomerProductSummary {
+  productName: string;
+  packSize?: string;
+  totalWeightKg: number;
+  totalAmount: number;
+  ordersCount: number;
+}
+
 export interface CustomerStat {
   id: string;
   name: string;
@@ -112,6 +120,7 @@ export interface CustomerStat {
   isRepeatCustomer: boolean; // สั่งตั้งแต่ 2 ครั้งขึ้นไป
   tier: 'VIP (5+ ครั้ง)' | 'ประจำ (3-4 ครั้ง)' | 'ซื้อซ้ำ (2 ครั้ง)' | 'ใหม่ (1 ครั้ง)';
   orders: PurchaseOrder[];
+  productsBought: CustomerProductSummary[];
   ordersInPeriodCount?: number;
   revenueInPeriod?: number;
   weightInPeriod?: number;

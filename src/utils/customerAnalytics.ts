@@ -94,6 +94,29 @@ export function getAllCustomerStats(
 
     const isRepeatInPeriod = hasPriorOrdersBeforePeriod || (ordersInPeriodCount > 1 && !isNewInPeriod) || (isRepeatCustomer && ordersInPeriodCount > 0);
 
+    // Compute aggregated products bought by this customer
+    const productMap: Record<string, { productName: string; packSize?: string; totalWeightKg: number; totalAmount: number; ordersCount: number }> = {};
+    orders.forEach((o) => {
+      (o.items || []).forEach((it) => {
+        const pack = it.packSize || (it.productName.includes('100') ? '100g' : it.productName.includes('500') ? '500g' : it.productName.includes('5กก') ? '5kg' : '1kg');
+        const pKey = `${it.productName.trim()}__${pack}`;
+        if (!productMap[pKey]) {
+          productMap[pKey] = {
+            productName: it.productName.trim(),
+            packSize: it.packSize || pack,
+            totalWeightKg: 0,
+            totalAmount: 0,
+            ordersCount: 0,
+          };
+        }
+        productMap[pKey].totalWeightKg += (it.weightKg || 0);
+        productMap[pKey].totalAmount += (it.totalPrice || ((it.weightKg || 0) * (it.pricePerKg || 0)) || 0);
+        productMap[pKey].ordersCount += 1;
+      });
+    });
+
+    const productsBought = Object.values(productMap).sort((a, b) => b.totalWeightKg - a.totalWeightKg);
+
     results.push({
       id: entry.key,
       name: entry.latestName || 'ไม่ระบุชื่อ',
@@ -108,6 +131,7 @@ export function getAllCustomerStats(
       isRepeatCustomer,
       tier,
       orders: orders.slice().reverse(), // Newest first for UI display
+      productsBought,
       ordersInPeriodCount,
       revenueInPeriod,
       weightInPeriod,
@@ -373,7 +397,7 @@ export function getCustomerFrequencyDistribution(customers: CustomerStat[]): {
 }
 
 /**
- * Export Customer Data to CSV formatted for Excel
+ * Export Customer Summary with Purchased Items overview to CSV (Excel compatible)
  */
 export function exportCustomersToCSV(customers: CustomerStat[], title: string = 'customer_summary'): void {
   const headers = [
@@ -385,26 +409,34 @@ export function exportCustomersToCSV(customers: CustomerStat[], title: string = 
     'จำนวนออเดอร์ทั้งหมด (ครั้ง)',
     'ซื้อซ้ำกี่ครั้งแล้ว',
     'สถานะลูกค้า',
-    'สั่งซื้อครั้งแรก',
-    'สั่งซื้อล่าสุด',
+    'รายการสินค้าที่เคยสั่งซื้อ (น้ำหนัก, ยอดเงิน)',
     'น้ำหนักรวมสะสม (กก.)',
     'ยอดซื้อรวมสะสม (บาท)',
+    'สั่งซื้อครั้งแรก',
+    'สั่งซื้อล่าสุด',
   ];
 
-  const rows = customers.map((c, idx) => [
-    idx + 1,
-    `"${c.name.replace(/"/g, '""')}"`,
-    `"${c.phone}"`,
-    `"${c.address.replace(/"/g, '""')}"`,
-    `"${c.tier}"`,
-    c.totalOrdersCount,
-    c.repeatTimes,
-    c.isRepeatCustomer ? '"ลูกค้าซื้อซ้ำ"' : '"ลูกค้าใหม่ (ซื้อ 1 ครั้ง)"',
-    `"${formatThaiShortDate(c.firstOrderDate)}"`,
-    `"${formatThaiShortDate(c.lastOrderDate)}"`,
-    c.totalWeightKg,
-    c.totalRevenue,
-  ]);
+  const rows = customers.map((c, idx) => {
+    const productsSummaryText = (c.productsBought || [])
+      .map((p) => `${p.productName}${p.packSize ? ` [${p.packSize}]` : ''} (${p.totalWeightKg} กก. - ${p.totalAmount.toLocaleString()}฿)`)
+      .join('; ');
+
+    return [
+      idx + 1,
+      `"${c.name.replace(/"/g, '""')}"`,
+      `"${c.phone}"`,
+      `"${c.address.replace(/"/g, '""')}"`,
+      `"${c.tier}"`,
+      c.totalOrdersCount,
+      c.repeatTimes,
+      c.isRepeatCustomer ? '"ลูกค้าซื้อซ้ำ"' : '"ลูกค้าใหม่ (ซื้อ 1 ครั้ง)"',
+      `"${productsSummaryText.replace(/"/g, '""')}"`,
+      c.totalWeightKg,
+      c.totalRevenue,
+      `"${formatThaiShortDate(c.firstOrderDate)}"`,
+      `"${formatThaiShortDate(c.lastOrderDate)}"`,
+    ];
+  });
 
   const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -416,3 +448,364 @@ export function exportCustomersToCSV(customers: CustomerStat[], title: string = 
   link.click();
   document.body.removeChild(link);
 }
+
+/**
+ * Export Detailed Customer x Products Breakdown to CSV (Excel compatible)
+ * Lists every product ordered by each customer, its weight (kg), and revenue (THB).
+ */
+export function exportCustomerProductsDetailToCSV(
+  customers: CustomerStat[],
+  title: string = 'customer_product_breakdown'
+): void {
+  const headers = [
+    'ลำดับลูกค้า',
+    'ชื่อลูกค้า',
+    'เบอร์โทรศัพท์',
+    'ที่อยู่จัดส่ง',
+    'ระดับลูกค้า',
+    'สินค้าที่สั่งซื้อ',
+    'ขนาดบรรจุ/แพ็ค',
+    'น้ำหนักสินค้านี้ (กก.)',
+    'ยอดเงินสินค้านี้ (บาท)',
+    'จำนวนครั้งที่สั่งสินค้านี้ (บิล)',
+    'น้ำหนักรวมสะสมของลูกค้า (กก.)',
+    'ยอดซื้อรวมสะสมของลูกค้า (บาท)',
+    'จำนวนออเดอร์ทั้งหมด (บิล)',
+    'ซื้อซ้ำกี่ครั้งแล้ว',
+    'สั่งซื้อครั้งแรก',
+    'สั่งซื้อล่าสุด',
+  ];
+
+  const rows: Array<(string | number)[]> = [];
+
+  let custIdx = 1;
+  customers.forEach((c) => {
+    const products = c.productsBought && c.productsBought.length > 0
+      ? c.productsBought
+      : [{ productName: 'ไม่มีข้อมูลสินค้า', packSize: '-', totalWeightKg: c.totalWeightKg, totalAmount: c.totalRevenue, ordersCount: c.totalOrdersCount }];
+
+    products.forEach((p) => {
+      rows.push([
+        custIdx,
+        `"${c.name.replace(/"/g, '""')}"`,
+        `"${c.phone}"`,
+        `"${c.address.replace(/"/g, '""')}"`,
+        `"${c.tier}"`,
+        `"${p.productName.replace(/"/g, '""')}"`,
+        `"${p.packSize || '-'}"`,
+        p.totalWeightKg,
+        p.totalAmount,
+        p.ordersCount,
+        c.totalWeightKg,
+        c.totalRevenue,
+        c.totalOrdersCount,
+        c.repeatTimes,
+        `"${formatThaiShortDate(c.firstOrderDate)}"`,
+        `"${formatThaiShortDate(c.lastOrderDate)}"`,
+      ]);
+    });
+    custIdx++;
+  });
+
+  const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', `sumalee_${title}_${new Date().toISOString().slice(0, 10)}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+/**
+ * Extract distinct months with order stats for an individual customer
+ */
+export function getCustomerAvailableMonths(customer: CustomerStat): {
+  key: string;
+  label: string;
+  shortLabel: string;
+  count: number;
+  revenue: number;
+  weightKg: number;
+}[] {
+  const map: Record<
+    string,
+    { key: string; label: string; shortLabel: string; count: number; revenue: number; weightKg: number }
+  > = {};
+
+  (customer.orders || []).forEach((o) => {
+    const d = new Date(o.createdAt);
+    if (isNaN(d.getTime())) return;
+    const y = d.getFullYear();
+    const m = d.getMonth();
+    const key = `${y}-${String(m + 1).padStart(2, '0')}`;
+
+    if (!map[key]) {
+      const thaiYear = y + 543;
+      map[key] = {
+        key,
+        label: `${THAI_FULL_MONTHS[m]} ${thaiYear}`,
+        shortLabel: `${THAI_SHORT_MONTHS[m]} ${String(thaiYear).slice(-2)}`,
+        count: 0,
+        revenue: 0,
+        weightKg: 0,
+      };
+    }
+    map[key].count += 1;
+    map[key].revenue += o.totalAmount || 0;
+    map[key].weightKg += o.totalWeightKg || 0;
+  });
+
+  return Object.values(map).sort((a, b) => b.key.localeCompare(a.key));
+}
+
+/**
+ * Computes customer data filtered by a specific month key (e.g. '2026-08' or 'all')
+ */
+export function getCustomerDataForMonth(customer: CustomerStat, monthKey?: string): {
+  monthKey: string;
+  monthLabel: string;
+  orders: PurchaseOrder[];
+  ordersCount: number;
+  totalRevenue: number;
+  totalWeightKg: number;
+  productsBought: {
+    productName: string;
+    packSize?: string;
+    totalWeightKg: number;
+    totalAmount: number;
+    ordersCount: number;
+  }[];
+  firstOrderDate: string;
+  lastOrderDate: string;
+} {
+  const isAll = !monthKey || monthKey === 'all';
+  const allOrders = customer.orders || [];
+
+  let orders = allOrders;
+  let monthLabel = 'ทุกเดือน (สะสมทั้งหมด)';
+
+  if (!isAll) {
+    orders = allOrders.filter((o) => {
+      const d = new Date(o.createdAt);
+      if (isNaN(d.getTime())) return false;
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      return `${y}-${m}` === monthKey;
+    });
+
+    const [yStr, mStr] = (monthKey || '').split('-');
+    const y = parseInt(yStr, 10);
+    const m = parseInt(mStr, 10);
+    if (!isNaN(y) && !isNaN(m) && m >= 1 && m <= 12) {
+      monthLabel = `${THAI_FULL_MONTHS[m - 1]} ${y + 543}`;
+    }
+  }
+
+  const ordersCount = orders.length;
+  const totalRevenue = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+  const totalWeightKg = orders.reduce((sum, o) => sum + (o.totalWeightKg || 0), 0);
+
+  const productMap: Record<
+    string,
+    { productName: string; packSize?: string; totalWeightKg: number; totalAmount: number; ordersCount: number }
+  > = {};
+
+  orders.forEach((o) => {
+    (o.items || []).forEach((it) => {
+      const pack =
+        it.packSize ||
+        (it.productName.includes('100')
+          ? '100g'
+          : it.productName.includes('500')
+          ? '500g'
+          : it.productName.includes('5กก')
+          ? '5kg'
+          : '1kg');
+      const pKey = `${it.productName.trim()}__${pack}`;
+      if (!productMap[pKey]) {
+        productMap[pKey] = {
+          productName: it.productName.trim(),
+          packSize: it.packSize || pack,
+          totalWeightKg: 0,
+          totalAmount: 0,
+          ordersCount: 0,
+        };
+      }
+      productMap[pKey].totalWeightKg += it.weightKg || 0;
+      productMap[pKey].totalAmount +=
+        it.totalPrice || (it.weightKg || 0) * (it.pricePerKg || 0) || 0;
+      productMap[pKey].ordersCount += 1;
+    });
+  });
+
+  const productsBought = Object.values(productMap).sort((a, b) => b.totalWeightKg - a.totalWeightKg);
+
+  const sortedChronological = [...orders].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  );
+  const firstOrderDate = sortedChronological.length > 0 ? sortedChronological[0].createdAt : customer.firstOrderDate;
+  const lastOrderDate =
+    sortedChronological.length > 0
+      ? sortedChronological[sortedChronological.length - 1].createdAt
+      : customer.lastOrderDate;
+
+  return {
+    monthKey: monthKey || 'all',
+    monthLabel,
+    orders,
+    ordersCount,
+    totalRevenue,
+    totalWeightKg,
+    productsBought,
+    firstOrderDate,
+    lastOrderDate,
+  };
+}
+
+/**
+ * Export a Single Customer's complete Order & Product Summary to CSV (Excel compatible)
+ * Supports exporting either all-time accumulated data or a specific month's data.
+ */
+export function exportSingleCustomerSummaryToCSV(customer: CustomerStat, monthKey?: string): void {
+  const monthData = getCustomerDataForMonth(customer, monthKey);
+  const isMonthly = monthKey && monthKey !== 'all';
+  const lines: string[] = [];
+
+  // 1. Header Information Block
+  lines.push(
+    `"สรุปข้อมูลการสั่งซื้อและรายการสินค้าลูกค้า ${
+      isMonthly ? `ประจำเดือน ${monthData.monthLabel}` : '(สะสมทุกเดือน)'
+    }"`
+  );
+  lines.push(`"ชื่อลูกค้า:","${customer.name.replace(/"/g, '""')}"`);
+  lines.push(`"เบอร์โทรศัพท์:","${customer.phone}"`);
+  lines.push(`"ที่อยู่จัดส่งล่าสุด:","${(customer.address || '-').replace(/"/g, '""')}"`);
+  lines.push(`"ระดับลูกค้า:","${customer.tier}"`);
+  lines.push(`"ช่วงเวลาของรายงาน:","${monthData.monthLabel}"`);
+  lines.push(
+    `"จำนวนออเดอร์ในรายงาน:",${monthData.ordersCount} บิล (ยอดสะสมตลอดกาล ${customer.totalOrdersCount} บิล)`
+  );
+  lines.push(
+    `"น้ำหนักสินค้ารวมในรายงาน (กก.):",${monthData.totalWeightKg} (ยอดสะสมตลอดกาล ${customer.totalWeightKg} กก.)`
+  );
+  lines.push(
+    `"ยอดสั่งซื้อรวมในรายงาน (บาท):",${monthData.totalRevenue} (ยอดสะสมตลอดกาล ${customer.totalRevenue} บาท)`
+  );
+  lines.push(`"วันที่สั่งซื้อครั้งแรกในรายงาน:","${formatThaiShortDate(monthData.firstOrderDate)}"`);
+  lines.push(`"วันที่สั่งซื้อล่าสุดในรายงาน:","${formatThaiShortDate(monthData.lastOrderDate)}"`);
+  lines.push(
+    `"วันที่ออกรายงาน:","${new Date().toLocaleDateString('th-TH', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })}"`
+  );
+  lines.push(''); // blank row
+
+  // 2. Table 1: Aggregated Products Bought
+  lines.push(
+    `"--- สรุปรายการสินค้าที่สั่งซื้อใน ${monthData.monthLabel} (${monthData.productsBought.length} รายการ) ---"`
+  );
+  lines.push('ลำดับ,ชื่อสินค้า,ขนาดบรรจุ,จำนวนครั้งที่สั่ง (บิล),น้ำหนักรวม (กก.),ยอดเงินรวม (บาท),สัดส่วนยอดเงิน (%)');
+
+  monthData.productsBought.forEach((p, idx) => {
+    const sharePercent =
+      monthData.totalRevenue > 0
+        ? (Math.round((p.totalAmount / monthData.totalRevenue) * 1000) / 10).toFixed(1)
+        : '0.0';
+    lines.push(
+      [
+        idx + 1,
+        `"${p.productName.replace(/"/g, '""')}"`,
+        `"${p.packSize || '-'}"`,
+        p.ordersCount,
+        p.totalWeightKg,
+        p.totalAmount,
+        `${sharePercent}%`,
+      ].join(',')
+    );
+  });
+
+  // Products Table Total Row
+  lines.push(
+    [
+      '',
+      `"รวมสินค้าใน${monthData.monthLabel}"`,
+      '""',
+      monthData.ordersCount,
+      monthData.totalWeightKg,
+      monthData.totalRevenue,
+      '"100%"',
+    ].join(',')
+  );
+
+  lines.push(''); // blank row
+  lines.push(''); // blank row
+
+  // 3. Table 2: Detailed Order Bills History
+  lines.push(
+    `"--- ประวัติใบสั่งซื้อแต่ละบิลใน ${monthData.monthLabel} (${monthData.orders.length} บิล) ---"`
+  );
+  lines.push(
+    'ลำดับบิล,รหัสคำสั่งซื้อ (PO),วันที่สั่งซื้อ,สถานะจัดส่ง,สถานะชำระเงิน,รายการสินค้าในบิล,น้ำหนักบิล (กก.),ยอดเงินบิล (บาท),ค่าจัดส่ง (บาท),VAT (บาท),จำนวนกล่อง,หมายเหตุ'
+  );
+
+  monthData.orders.forEach((ord, idx) => {
+    const itemsText = (ord.items || [])
+      .map(
+        (it) =>
+          `${it.productName}${it.packSize ? ` [${it.packSize}]` : ''} (${it.weightKg} กก. @${it.pricePerKg}฿ = ${it.totalPrice}฿)`
+      )
+      .join('; ');
+
+    const deliveryStatusText =
+      ord.deliveryStatus === 'delivered'
+        ? 'จัดส่งสำเร็จ'
+        : ord.deliveryStatus === 'shipped'
+        ? 'จัดส่งแล้ว'
+        : ord.deliveryStatus === 'cancelled'
+        ? 'ยกเลิก'
+        : 'รอดำเนินการ';
+
+    const paymentStatusText =
+      ord.paymentStatus === 'paid'
+        ? 'ชำระแล้ว'
+        : ord.paymentStatus === 'cod'
+        ? 'เก็บเงินปลายทาง'
+        : 'รอชำระ';
+
+    lines.push(
+      [
+        idx + 1,
+        `"${ord.orderNumber || ord.id || '-'}"`,
+        `"${formatThaiShortDate(ord.createdAt)}"`,
+        `"${deliveryStatusText}"`,
+        `"${paymentStatusText}"`,
+        `"${itemsText.replace(/"/g, '""')}"`,
+        ord.totalWeightKg || 0,
+        ord.totalAmount || 0,
+        ord.shippingFee || 0,
+        ord.vatAmount || 0,
+        ord.boxCount || 0,
+        `"${(ord.note || '-').replace(/"/g, '""')}"`,
+      ].join(',')
+    );
+  });
+
+  const csvContent = '\uFEFF' + lines.join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  const sanitizedCustomerName = customer.name.replace(/[/\\?%*:|"<> ]/g, '_');
+  const suffix = isMonthly ? `_${monthKey}` : `_all_months_${new Date().toISOString().slice(0, 10)}`;
+  link.setAttribute('download', `sumalee_customer_${sanitizedCustomerName}${suffix}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
