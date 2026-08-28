@@ -9,6 +9,10 @@ export const FACTORY_STOCK_PRESET_NAMES = [
   'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)',
   'หอมเจียวยางเขียว 100กรัม (รหัส OF02.02)',
   'หอมเจียวC 5กก (รหัส OF03)',
+  'กระเทียมเจียวD สูตร40 (รหัส FG01)',
+  'กระเทียมเจียวC สูตร60 (รหัส FG03)',
+  'กระเทียมเจียวB สูตร80 (รหัส FG04)',
+  'กระเทียมเจียวA สูตร100 (รหัส FG06)',
 ];
 
 export const STOCK_CUTOFF_DATE = '2026-08-01';
@@ -21,10 +25,17 @@ export function normalizeProductName(name: string): string | null {
   if (!name) return null;
   const t = name.trim();
   if (t.includes('OF01') || t.includes('ยางแดง')) return 'หอมเจียวยางแดง 5กก (รหัส OF01)';
-  if (t.includes('OF02.02') || t.includes('100กรัม') || t.includes('100 กรัม')) return 'หอมเจียวยางเขียว 100กรัม (รหัส OF02.02)';
-  if (t.includes('OF02.01') || t.includes('500กรัม') || t.includes('500 กรัม')) return 'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)';
+  if (t.includes('OF02.02') || ((t.includes('100กรัม') || t.includes('100 กรัม')) && (t.includes('หอม') || t.includes('ยางเขียว')))) return 'หอมเจียวยางเขียว 100กรัม (รหัส OF02.02)';
+  if (t.includes('OF02.01') || ((t.includes('500กรัม') || t.includes('500 กรัม')) && (t.includes('หอม') || t.includes('ยางเขียว')))) return 'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)';
   if (t.includes('OF02') || t.includes('ยางเขียว')) return 'หอมเจียวยางเขียว 5กก (รหัส OF02)';
   if (t.includes('OF03') || t.includes('แป้งหนา') || t.includes('หอมเจียวC') || t.includes('หอมเจียว C') || t.includes('หอมเจียว c')) return 'หอมเจียวC 5กก (รหัส OF03)';
+
+  // Garlic stock items
+  if (t.includes('FG01') || (t.includes('กระเทียม') && (t.includes('สูตร40') || t.includes('สูตร 40') || t.includes('สูตร 4') || t.includes('สูตร4') || t.includes('เจียวD') || t.includes('เจียว D')))) return 'กระเทียมเจียวD สูตร40 (รหัส FG01)';
+  if (t.includes('FG03') || (t.includes('กระเทียม') && (t.includes('สูตร60') || t.includes('สูตร 60') || t.includes('สูตร 6') || t.includes('สูตร6') || t.includes('เจียวC') || t.includes('เจียว C')))) return 'กระเทียมเจียวC สูตร60 (รหัส FG03)';
+  if (t.includes('FG04') || (t.includes('กระเทียม') && (t.includes('สูตร80') || t.includes('สูตร 80') || t.includes('สูตร 8') || t.includes('สูตร8') || t.includes('เจียวB') || t.includes('เจียว B')))) return 'กระเทียมเจียวB สูตร80 (รหัส FG04)';
+  if (t.includes('FG06') || (t.includes('กระเทียม') && (t.includes('สูตร100') || t.includes('สูตร 100') || t.includes('สูตร 1') || t.includes('สูตร1') || t.includes('เจียวA') || t.includes('เจียว A')))) return 'กระเทียมเจียวA สูตร100 (รหัส FG06)';
+
   return null;
 }
 
@@ -44,13 +55,17 @@ export function getSampleStockEntries(): StockEntry[] {
       shiftLabel: 'กะเช้า (08:00 - 20:00)',
       recordedBy: 'สมชาย (หัวหน้ากะเช้า)',
       note: 'ผลิตล็อตปกติประจำวัน เครื่องจักรทำงานปกติ',
-      totalWeightKg: 450,
+      totalWeightKg: 750,
       createdAt: '2026-08-03T08:30:00.000Z',
       items: [
         { id: 'i1', productName: 'หอมเจียวยางแดง 5กก (รหัส OF01)', weightKg: 180 },
         { id: 'i2', productName: 'หอมเจียวยางเขียว 5กก (รหัส OF02)', weightKg: 150 },
         { id: 'i3', productName: 'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)', weightKg: 70 },
         { id: 'i4', productName: 'หอมเจียวC 5กก (รหัส OF03)', weightKg: 50 },
+        { id: 'i4_1', productName: 'กระเทียมเจียวD สูตร40 (รหัส FG01)', weightKg: 100 },
+        { id: 'i4_2', productName: 'กระเทียมเจียวC สูตร60 (รหัส FG03)', weightKg: 80 },
+        { id: 'i4_3', productName: 'กระเทียมเจียวB สูตร80 (รหัส FG04)', weightKg: 70 },
+        { id: 'i4_4', productName: 'กระเทียมเจียวA สูตร100 (รหัส FG06)', weightKg: 50 },
       ],
     },
     {
@@ -59,13 +74,15 @@ export function getSampleStockEntries(): StockEntry[] {
       shift: 'night',
       shiftLabel: 'กะดึก (20:00 - 08:00)',
       recordedBy: 'วิชัย (หัวหน้ากะดึก)',
-      note: 'เร่งผลิตหอมเจียวเพิ่มสำหรับส่งเอเย่นต์',
-      totalWeightKg: 350,
+      note: 'เร่งผลิตหอมเจียวและกระเทียมเจียวเพิ่มสำหรับส่งลูกค้า',
+      totalWeightKg: 550,
       createdAt: '2026-08-03T20:30:00.000Z',
       items: [
         { id: 'i5', productName: 'หอมเจียวยางแดง 5กก (รหัส OF01)', weightKg: 200 },
         { id: 'i6', productName: 'หอมเจียวยางเขียว 5กก (รหัส OF02)', weightKg: 100 },
         { id: 'i7', productName: 'หอมเจียวC 5กก (รหัส OF03)', weightKg: 50 },
+        { id: 'i7_1', productName: 'กระเทียมเจียวD สูตร40 (รหัส FG01)', weightKg: 100 },
+        { id: 'i7_2', productName: 'กระเทียมเจียวC สูตร60 (รหัส FG03)', weightKg: 100 },
       ],
     },
     {
@@ -75,13 +92,17 @@ export function getSampleStockEntries(): StockEntry[] {
       shiftLabel: 'กะเช้า (08:00 - 20:00)',
       recordedBy: 'สมชาย (หัวหน้ากะเช้า)',
       note: 'ผลิตเต็มกำลัง',
-      totalWeightKg: 500,
+      totalWeightKg: 800,
       createdAt: '2026-08-02T08:30:00.000Z',
       items: [
         { id: 'i8', productName: 'หอมเจียวยางแดง 5กก (รหัส OF01)', weightKg: 220 },
         { id: 'i9', productName: 'หอมเจียวยางเขียว 5กก (รหัส OF02)', weightKg: 180 },
         { id: 'i10', productName: 'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)', weightKg: 50 },
         { id: 'i11', productName: 'หอมเจียวC 5กก (รหัส OF03)', weightKg: 50 },
+        { id: 'i11_1', productName: 'กระเทียมเจียวD สูตร40 (รหัส FG01)', weightKg: 120 },
+        { id: 'i11_2', productName: 'กระเทียมเจียวC สูตร60 (รหัส FG03)', weightKg: 100 },
+        { id: 'i11_3', productName: 'กระเทียมเจียวB สูตร80 (รหัส FG04)', weightKg: 50 },
+        { id: 'i11_4', productName: 'กระเทียมเจียวA สูตร100 (รหัส FG06)', weightKg: 30 },
       ],
     },
     {
@@ -91,13 +112,17 @@ export function getSampleStockEntries(): StockEntry[] {
       shiftLabel: 'กะเช้า (08:00 - 20:00)',
       recordedBy: 'สมชาย (หัวหน้ากะเช้า)',
       note: 'เริ่มเดือนใหม่ ผลิตสินค้าครบทุกรายการ',
-      totalWeightKg: 420,
+      totalWeightKg: 720,
       createdAt: '2026-08-01T08:30:00.000Z',
       items: [
         { id: 'i12', productName: 'หอมเจียวยางแดง 5กก (รหัส OF01)', weightKg: 200 },
         { id: 'i13', productName: 'หอมเจียวยางเขียว 5กก (รหัส OF02)', weightKg: 120 },
         { id: 'i14', productName: 'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)', weightKg: 50 },
         { id: 'i15', productName: 'หอมเจียวC 5กก (รหัส OF03)', weightKg: 50 },
+        { id: 'i15_1', productName: 'กระเทียมเจียวD สูตร40 (รหัส FG01)', weightKg: 100 },
+        { id: 'i15_2', productName: 'กระเทียมเจียวC สูตร60 (รหัส FG03)', weightKg: 100 },
+        { id: 'i15_3', productName: 'กระเทียมเจียวB สูตร80 (รหัส FG04)', weightKg: 60 },
+        { id: 'i15_4', productName: 'กระเทียมเจียวA สูตร100 (รหัส FG06)', weightKg: 40 },
       ],
     },
   ];

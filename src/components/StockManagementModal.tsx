@@ -552,10 +552,10 @@ export const StockManagementModal: React.FC<StockManagementModalProps> = ({
                       ตัวเลือกสินค้าที่สามารถคีย์เข้าสต็อคได้ (กดคลิกเติมด่วน +50 กก.):
                     </span>
                     <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md font-bold border border-emerald-200">
-                      จำกัดเฉพาะ 4 รายการหลัก
+                      {FACTORY_STOCK_PRODUCT_OPTIONS.length} รายการสต็อคโรงงาน
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-2">
                     {FACTORY_STOCK_PRODUCT_OPTIONS.map((p) => {
                       const remKg = productStockMap[p.name] ?? 0;
                       return (
@@ -614,7 +614,7 @@ export const StockManagementModal: React.FC<StockManagementModalProps> = ({
                           {/* Product Name Dropdown Selection */}
                           <div className="sm:col-span-6">
                             <label className="block text-[10px] font-bold text-slate-500 mb-0.5">
-                              เลือกสินค้า #{idx + 1} (เฉพาะ 4 ตัวเลือกที่กำหนด)
+                              เลือกสินค้า #{idx + 1} (สินค้าสต็อคโรงงาน)
                             </label>
                             <select
                               value={item.productName}

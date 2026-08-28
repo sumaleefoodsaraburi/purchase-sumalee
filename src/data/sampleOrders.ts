@@ -47,6 +47,10 @@ export const FACTORY_STOCK_PRODUCT_OPTIONS = [
   { code: 'OF02.01', name: 'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)' },
   { code: 'OF02.02', name: 'หอมเจียวยางเขียว 100กรัม (รหัส OF02.02)' },
   { code: 'OF03', name: 'หอมเจียวC 5กก (รหัส OF03)' },
+  { code: 'FG01', name: 'กระเทียมเจียวD สูตร40 (รหัส FG01)' },
+  { code: 'FG03', name: 'กระเทียมเจียวC สูตร60 (รหัส FG03)' },
+  { code: 'FG04', name: 'กระเทียมเจียวB สูตร80 (รหัส FG04)' },
+  { code: 'FG06', name: 'กระเทียมเจียวA สูตร100 (รหัส FG06)' },
 ];
 
 /**
@@ -58,6 +62,10 @@ export const POPULAR_PRODUCTS_PRESETS = [
   { name: 'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)', defaultPrice: 65 },
   { name: 'หอมเจียวยางเขียว 100กรัม (รหัส OF02.02)', defaultPrice: 20 },
   { name: 'หอมเจียวC 5กก (รหัส OF03)', defaultPrice: 110 },
+  { name: 'กระเทียมเจียวD สูตร40 (รหัส FG01)', defaultPrice: 100 },
+  { name: 'กระเทียมเจียวC สูตร60 (รหัส FG03)', defaultPrice: 110 },
+  { name: 'กระเทียมเจียวB สูตร80 (รหัส FG04)', defaultPrice: 120 },
+  { name: 'กระเทียมเจียวA สูตร100 (รหัส FG06)', defaultPrice: 130 },
   { name: 'หอมเจียว 100 กรัม', defaultPrice: 20 },
   { name: 'หอมเจียว 500 กรัม', defaultPrice: 65 },
   { name: 'หอมเจียว (กก.)', defaultPrice: 120 },
