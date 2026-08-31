@@ -5,6 +5,7 @@ import {
   calculateDailyStockSummary,
   getAllDailyStockSummaries,
   normalizeProductName,
+  isStockTrackedProduct,
 } from '../utils/stockUtils';
 import { formatWeight, formatCurrency } from '../utils/formatters';
 import {
@@ -1237,20 +1238,31 @@ export const StockManagementModal: React.FC<StockManagementModalProps> = ({
 
                           {/* Ordered Items Breakdown */}
                           <div className="flex flex-wrap gap-1.5 pt-1">
-                            {order.items.map((it, itIdx) => (
-                              <span
-                                key={itIdx}
-                                className="text-[11px] bg-white text-slate-700 px-2 py-0.5 rounded-md border border-slate-200 flex items-center gap-1"
-                              >
-                                <span className="text-slate-600">{it.productName}:</span>
-                                <strong className="text-rose-700 font-bold">-{formatWeight(it.weightKg)}</strong>
-                                {it.packSize && (
-                                  <span className="text-[9px] text-slate-400 bg-slate-100 px-1 rounded">
-                                    {it.packSize}
-                                  </span>
-                                )}
-                              </span>
-                            ))}
+                            {order.items.map((it, itIdx) => {
+                              const isTracked = isStockTrackedProduct(it.productName);
+                              return (
+                                <span
+                                  key={itIdx}
+                                  className={`text-[11px] px-2 py-0.5 rounded-md border flex items-center gap-1 ${
+                                    isTracked
+                                      ? 'bg-white text-slate-700 border-slate-200'
+                                      : 'bg-slate-100/70 text-slate-500 border-slate-200'
+                                  }`}
+                                >
+                                  <span>{it.productName}:</span>
+                                  {isTracked ? (
+                                    <strong className="text-rose-700 font-bold">-{formatWeight(it.weightKg)}</strong>
+                                  ) : (
+                                    <span className="text-[10px] text-slate-400 italic">({formatWeight(it.weightKg)} ไม่ตัดสต็อค)</span>
+                                  )}
+                                  {it.packSize && (
+                                    <span className="text-[9px] text-slate-400 bg-slate-100 px-1 rounded">
+                                      {it.packSize}
+                                    </span>
+                                  )}
+                                </span>
+                              );
+                            })}
                           </div>
                         </div>
 

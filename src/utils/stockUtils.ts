@@ -19,15 +19,33 @@ export const STOCK_CUTOFF_DATE = '2026-08-01';
 
 /**
  * Normalize product names to match the factory/online stock products.
- * If matched with one of the standard factory/online stock preset codes, returns the standardized name.
- * Otherwise returns the trimmed original name so custom stock products are accurately tracked.
+ * STRICTLY tracks Fried Shallots (หอมเจียว) and Fried Garlic (กระเทียมเจียว) only.
+ * Returns null if the product is not fried shallots or fried garlic (e.g. chili, fresh onion, spices).
  */
-export function normalizeProductName(name: string): string {
-  if (!name) return '';
+export function normalizeProductName(name: string): string | null {
+  if (!name) return null;
   const t = name.trim();
   const lower = t.toLowerCase();
 
-  // Fried Shallots (หอมเจียว)
+  // Exclude non-fried fresh or raw items explicitly
+  if (t.includes('หอมแดงสด') || t.includes('หอมสด') || t.includes('กระเทียมสด') || t.includes('กระเทียมสับสด') || t.includes('กระเทียมสับละเอียด')) {
+    return null;
+  }
+
+  // Exclude chili, pastes, seasonings, packaging, and other non-shallot/garlic items
+  if (
+    t.includes('พริก') ||
+    t.includes('น้ำพริก') ||
+    t.includes('ถุง') ||
+    t.includes('กล่อง') ||
+    t.includes('น้ำมัน') ||
+    t.includes('เกลือ') ||
+    t.includes('แป้งสด')
+  ) {
+    return null;
+  }
+
+  // 1. Fried Shallots (หอมเจียว / หอมทอด)
   if (t.includes('OF01') || t.includes('ยางแดง')) return 'หอมเจียวยางแดง 5กก (รหัส OF01)';
   if (
     t.includes('OF02.02') ||
@@ -55,13 +73,15 @@ export function normalizeProductName(name: string): string {
   }
 
   // Generic Shallots patterns
-  if (t.includes('หอมเจียว') || t.includes('หอมทอด')) {
+  if (t.includes('หอมเจียว') || t.includes('หอมทอด') || t.includes('หอมแผ่นเจียว')) {
     if (t.includes('100')) return 'หอมเจียวยางเขียว 100กรัม (รหัส OF02.02)';
     if (t.includes('500')) return 'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)';
+    if (t.includes('C') || t.includes('c') || t.includes('แป้ง')) return 'หอมเจียวC 5กก (รหัส OF03)';
+    if (t.includes('แดง')) return 'หอมเจียวยางแดง 5กก (รหัส OF01)';
     return 'หอมเจียวยางเขียว 5กก (รหัส OF02)';
   }
 
-  // Fried Garlic (กระเทียมเจียว)
+  // 2. Fried Garlic (กระเทียมเจียว / กระเทียมทอด)
   if (
     t.includes('FG01') ||
     (t.includes('กระเทียม') &&
@@ -116,11 +136,23 @@ export function normalizeProductName(name: string): string {
   }
 
   // Generic Garlic
-  if (t.includes('กระเทียมเจียว')) {
+  if (t.includes('กระเทียมเจียว') || t.includes('กระเทียมทอด')) {
+    if (t.includes('100') || t.includes('A') || t.includes('a')) return 'กระเทียมเจียวA สูตร100 (รหัส FG06)';
+    if (t.includes('80') || t.includes('B') || t.includes('b')) return 'กระเทียมเจียวB สูตร80 (รหัส FG04)';
+    if (t.includes('60') || t.includes('C') || t.includes('c')) return 'กระเทียมเจียวC สูตร60 (รหัส FG03)';
     return 'กระเทียมเจียวD สูตร40 (รหัส FG01)';
   }
 
-  return t;
+  // Any other product is NOT counted in stock
+  return null;
+}
+
+/**
+ * Check if a product is tracked in the factory/online stock system
+ * (Only fried shallots and fried garlic are tracked).
+ */
+export function isStockTrackedProduct(name: string): boolean {
+  return normalizeProductName(name) !== null;
 }
 
 /**
@@ -415,22 +447,24 @@ export function calculateDailyStockSummary(
         };
       });
 
-      deductedOrdersList.push({
-        id: order.id,
-        orderNumber: order.orderNumber,
-        customerName: order.customer.name,
-        customerPhone: order.customer.phone,
-        stockSource: order.stockSource || 'factory',
-        createdAt: order.createdAt,
-        deliveryStatus: order.deliveryStatus,
-        paymentStatus: order.paymentStatus,
-        totalWeightKg: order.totalWeightKg || orderMatchedWeight,
-        items: orderItems,
-      });
+      if (orderMatchedWeight > 0) {
+        deductedOrdersList.push({
+          id: order.id,
+          orderNumber: order.orderNumber,
+          customerName: order.customer.name,
+          customerPhone: order.customer.phone,
+          stockSource: order.stockSource || 'factory',
+          createdAt: order.createdAt,
+          deliveryStatus: order.deliveryStatus,
+          paymentStatus: order.paymentStatus,
+          totalWeightKg: Math.round(orderMatchedWeight * 100) / 100,
+          items: orderItems,
+        });
+      }
     }
   });
 
-  // 5. Calculate breakdown across all tracked products (preset + any dynamic products)
+  // 5. Calculate breakdown strictly across Fried Shallots & Fried Garlic (9 factory presets)
   let priorRemainingKg = 0;
   let dayShiftWeightKg = 0;
   let nightShiftWeightKg = 0;
@@ -438,11 +472,8 @@ export function calculateDailyStockSummary(
   let totalAvailableKg = 0;
   let totalSoldKg = 0;
 
-  // Ensure preset products appear in default order first, then any extra custom products
-  const orderedProductNames = [
-    ...FACTORY_STOCK_PRESET_NAMES,
-    ...Array.from(allProductNamesSet).filter((p) => !FACTORY_STOCK_PRESET_NAMES.includes(p)),
-  ];
+  // Strict list of the 9 preset products (หอมเจียว 5 รายการ + กระเทียมเจียว 4 รายการ)
+  const orderedProductNames = [...FACTORY_STOCK_PRESET_NAMES];
 
   const productBreakdown = orderedProductNames.map((pName) => {
     const pPriorProd = priorProducedMap[pName] || 0;
