@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { PurchaseOrder, StockEntry, ProductionShift, StockEntryItem } from '../types';
+import { PurchaseOrder, StockEntry, ProductionShift, StockEntryItem, StockLocation } from '../types';
 import { FACTORY_STOCK_PRODUCT_OPTIONS, POPULAR_PRODUCTS_PRESETS } from '../data/sampleOrders';
 import {
   calculateDailyStockSummary,
@@ -30,6 +30,8 @@ import {
   FileText,
   Clock,
   TrendingDown,
+  Factory,
+  Globe,
 } from 'lucide-react';
 
 interface StockManagementModalProps {
@@ -54,6 +56,9 @@ export const StockManagementModal: React.FC<StockManagementModalProps> = ({
 
   const [activeTab, setActiveTab] = useState<'form' | 'summary' | 'history'>('summary');
   
+  // Stock Source Filter for views ('all' | 'factory' | 'online')
+  const [stockSourceFilter, setStockSourceFilter] = useState<'all' | 'factory' | 'online'>('all');
+
   // Selected Date for Tab 2 Summary
   const [selectedSummaryDate, setSelectedSummaryDate] = useState<string>(todayStr);
 
@@ -61,6 +66,7 @@ export const StockManagementModal: React.FC<StockManagementModalProps> = ({
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [entryDate, setEntryDate] = useState<string>(todayStr);
   const [shift, setShift] = useState<ProductionShift>('day');
+  const [entryStockSource, setEntryStockSource] = useState<StockLocation>('factory');
   const [recordedBy, setRecordedBy] = useState<string>('สมชาย (หัวหน้ากะ)');
   const [note, setNote] = useState<string>('');
   const [items, setItems] = useState<StockEntryItem[]>([
@@ -84,6 +90,7 @@ export const StockManagementModal: React.FC<StockManagementModalProps> = ({
     setEditingEntryId(null);
     setEntryDate(todayStr);
     setShift('day');
+    setEntryStockSource('factory');
     setRecordedBy('สมชาย (หัวหน้ากะ)');
     setNote('');
     setItems([
@@ -97,6 +104,7 @@ export const StockManagementModal: React.FC<StockManagementModalProps> = ({
     setEditingEntryId(entry.id);
     setEntryDate(entry.dateKey);
     setShift(entry.shift);
+    setEntryStockSource(entry.stockSource || 'factory');
     setRecordedBy(entry.recordedBy || '');
     setNote(entry.note || '');
     setItems(entry.items.map((it) => ({ ...it })));
@@ -171,6 +179,7 @@ export const StockManagementModal: React.FC<StockManagementModalProps> = ({
       dateKey: entryDate,
       shift,
       shiftLabel,
+      stockSource: entryStockSource,
       items: validItems,
       totalWeightKg,
       recordedBy: recordedBy.trim() || undefined,
@@ -215,12 +224,14 @@ export const StockManagementModal: React.FC<StockManagementModalProps> = ({
   };
 
   // Selected Daily Summary Data
-  const dailySummary = calculateDailyStockSummary(selectedSummaryDate, stockEntries, orders);
+  const dailySummary = useMemo(() => {
+    return calculateDailyStockSummary(selectedSummaryDate, stockEntries, orders, stockSourceFilter);
+  }, [selectedSummaryDate, stockEntries, orders, stockSourceFilter]);
 
   // Today's Stock Summary for current remaining stock reference
   const todaySummary = useMemo(() => {
-    return calculateDailyStockSummary(todayStr, stockEntries, orders);
-  }, [todayStr, stockEntries, orders]);
+    return calculateDailyStockSummary(todayStr, stockEntries, orders, stockSourceFilter);
+  }, [todayStr, stockEntries, orders, stockSourceFilter]);
 
   // Product remaining stock map (keyed by product name)
   const productStockMap = useMemo(() => {
@@ -232,7 +243,9 @@ export const StockManagementModal: React.FC<StockManagementModalProps> = ({
   }, [todaySummary]);
 
   // All Summaries for History
-  const allSummaries = getAllDailyStockSummaries(stockEntries, orders);
+  const allSummaries = useMemo(() => {
+    return getAllDailyStockSummaries(stockEntries, orders, stockSourceFilter);
+  }, [stockEntries, orders, stockSourceFilter]);
 
   const filteredSummaries = allSummaries.filter((s) => {
     if (!historySearch.trim()) return true;
@@ -477,8 +490,8 @@ export const StockManagementModal: React.FC<StockManagementModalProps> = ({
                   )}
                 </div>
 
-                {/* Date, Shift, Supervisor Row */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* Date, Shift, Stock Location, Supervisor Row */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {/* Date Picker */}
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1">
@@ -525,6 +538,41 @@ export const StockManagementModal: React.FC<StockManagementModalProps> = ({
                       >
                         <Moon className="w-3.5 h-3.5 text-indigo-300" />
                         <span>กะดึก</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Stock Location Picker (โรงงาน / ออนไลน์) */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1">
+                      <Factory className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>คลังสต็อคที่นำเข้า</span>
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEntryStockSource('factory')}
+                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border ${
+                          entryStockSource === 'factory'
+                            ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
+                            : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+                        }`}
+                      >
+                        <Factory className="w-3.5 h-3.5" />
+                        <span>โรงงาน</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setEntryStockSource('online')}
+                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border ${
+                          entryStockSource === 'online'
+                            ? 'bg-blue-600 text-white border-blue-700 shadow-xs'
+                            : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+                        }`}
+                      >
+                        <Globe className="w-3.5 h-3.5" />
+                        <span>ออนไลน์</span>
                       </button>
                     </div>
                   </div>
@@ -734,27 +782,76 @@ export const StockManagementModal: React.FC<StockManagementModalProps> = ({
           {activeTab === 'summary' && (
             <div className="space-y-5">
               
-              {/* Date Filter Bar */}
-              <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-emerald-600" />
-                  <span className="text-xs font-bold text-slate-800">เลือกวันที่ต้องการเช็คสต็อค:</span>
-                  <input
-                    type="date"
-                    value={selectedSummaryDate}
-                    onChange={(e) => setSelectedSummaryDate(e.target.value)}
-                    className="px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none"
-                  />
-                  <button
-                    onClick={() => setSelectedSummaryDate(todayStr)}
-                    className="px-2.5 py-1 bg-emerald-100 text-emerald-800 hover:bg-emerald-200 rounded-lg text-xs font-bold transition-colors"
-                  >
-                    วันนี้
-                  </button>
+              {/* Date & Stock Source Filter Bar */}
+              <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-emerald-600" />
+                    <span className="text-xs font-bold text-slate-800">วันที่:</span>
+                    <input
+                      type="date"
+                      value={selectedSummaryDate}
+                      onChange={(e) => setSelectedSummaryDate(e.target.value)}
+                      className="px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none"
+                    />
+                    <button
+                      onClick={() => setSelectedSummaryDate(todayStr)}
+                      className="px-2.5 py-1 bg-emerald-100 text-emerald-800 hover:bg-emerald-200 rounded-lg text-xs font-bold transition-colors"
+                    >
+                      วันนี้
+                    </button>
+                  </div>
+
+                  <div className="h-5 w-px bg-slate-200 hidden sm:block"></div>
+
+                  {/* Stock Source Filter Buttons */}
+                  <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
+                    <button
+                      onClick={() => setStockSourceFilter('all')}
+                      className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                        stockSourceFilter === 'all'
+                          ? 'bg-white text-slate-900 shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      📦 ทุกคลังรวมกัน
+                    </button>
+                    <button
+                      onClick={() => setStockSourceFilter('factory')}
+                      className={`px-2.5 py-1 rounded-lg font-bold transition-all flex items-center gap-1 ${
+                        stockSourceFilter === 'factory'
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'text-slate-600 hover:text-emerald-700'
+                      }`}
+                    >
+                      <Factory className="w-3.5 h-3.5" />
+                      <span>โรงงาน</span>
+                    </button>
+                    <button
+                      onClick={() => setStockSourceFilter('online')}
+                      className={`px-2.5 py-1 rounded-lg font-bold transition-all flex items-center gap-1 ${
+                        stockSourceFilter === 'online'
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'text-slate-600 hover:text-blue-700'
+                      }`}
+                    >
+                      <Globe className="w-3.5 h-3.5" />
+                      <span>ออนไลน์</span>
+                    </button>
+                  </div>
                 </div>
 
-                <div className="text-xs text-slate-500 font-semibold">
-                  ประจำวันที่: <span className="text-slate-900 font-black text-sm">{dailySummary.dateThaiFull}</span>
+                <div className="text-xs text-slate-500 font-semibold flex items-center justify-between md:justify-end gap-2">
+                  <span>ประจำวันที่: <strong className="text-slate-900 font-black">{dailySummary.dateThaiFull}</strong></span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                    stockSourceFilter === 'factory'
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                      : stockSourceFilter === 'online'
+                      ? 'bg-blue-50 text-blue-800 border-blue-300'
+                      : 'bg-slate-100 text-slate-700 border-slate-300'
+                  }`}>
+                    {stockSourceFilter === 'factory' ? '🏭 คลังโรงงาน' : stockSourceFilter === 'online' ? '🌐 คลังออนไลน์' : '📦 รวมทุกคลัง'}
+                  </span>
                 </div>
               </div>
 
@@ -1085,19 +1182,57 @@ export const StockManagementModal: React.FC<StockManagementModalProps> = ({
               
               {/* Filter Toolbar */}
               <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="relative w-full sm:w-80">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                  <input
-                    type="text"
-                    placeholder="ค้นหาวันที่ หรือชื่อสินค้า..."
-                    value={historySearch}
-                    onChange={(e) => setHistorySearch(e.target.value)}
-                    className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 outline-none"
-                  />
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                  <div className="relative w-full sm:w-72">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                    <input
+                      type="text"
+                      placeholder="ค้นหาวันที่ หรือชื่อสินค้า..."
+                      value={historySearch}
+                      onChange={(e) => setHistorySearch(e.target.value)}
+                      className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 outline-none"
+                    />
+                  </div>
+
+                  {/* Stock Location Filter in History */}
+                  <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
+                    <button
+                      onClick={() => setStockSourceFilter('all')}
+                      className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                        stockSourceFilter === 'all'
+                          ? 'bg-white text-slate-900 shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      ทุกคลัง
+                    </button>
+                    <button
+                      onClick={() => setStockSourceFilter('factory')}
+                      className={`px-2.5 py-1 rounded-lg font-bold transition-all flex items-center gap-1 ${
+                        stockSourceFilter === 'factory'
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'text-slate-600 hover:text-emerald-700'
+                      }`}
+                    >
+                      <Factory className="w-3.5 h-3.5" />
+                      <span>โรงงาน</span>
+                    </button>
+                    <button
+                      onClick={() => setStockSourceFilter('online')}
+                      className={`px-2.5 py-1 rounded-lg font-bold transition-all flex items-center gap-1 ${
+                        stockSourceFilter === 'online'
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'text-slate-600 hover:text-blue-700'
+                      }`}
+                    >
+                      <Globe className="w-3.5 h-3.5" />
+                      <span>ออนไลน์</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="text-xs text-slate-500 font-semibold">
-                  พบบันทึกย้อนหลังรวม <strong className="text-slate-900">{filteredSummaries.length} วัน</strong> ({stockEntries.length} รอบคีย์)
+                  พบบันทึกย้อนหลังรวม <strong className="text-slate-900">{filteredSummaries.length} วัน</strong> ({stockEntries.filter(e => stockSourceFilter === 'all' || (e.stockSource || 'factory') === stockSourceFilter).length} รอบคีย์)
                 </div>
               </div>
 
@@ -1110,7 +1245,9 @@ export const StockManagementModal: React.FC<StockManagementModalProps> = ({
                   </div>
                 ) : (
                   filteredSummaries.map((summary) => {
-                    const dateEntries = stockEntries.filter((e) => e.dateKey === summary.dateKey);
+                    const dateEntries = stockEntries.filter(
+                      (e) => e.dateKey === summary.dateKey && (stockSourceFilter === 'all' || (e.stockSource || 'factory') === stockSourceFilter)
+                    );
 
                     return (
                       <div
@@ -1160,7 +1297,7 @@ export const StockManagementModal: React.FC<StockManagementModalProps> = ({
                                 className="bg-white p-3 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs"
                               >
                                 <div className="space-y-1">
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex flex-wrap items-center gap-2">
                                     <span
                                       className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
                                         entry.shift === 'day'
@@ -1170,6 +1307,27 @@ export const StockManagementModal: React.FC<StockManagementModalProps> = ({
                                     >
                                       {entry.shift === 'day' ? '☀️ กะเช้า' : '🌙 กะดึก'}
                                     </span>
+
+                                    <span
+                                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold flex items-center gap-1 border ${
+                                        (entry.stockSource || 'factory') === 'online'
+                                          ? 'bg-blue-50 text-blue-800 border-blue-200'
+                                          : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                      }`}
+                                    >
+                                      {(entry.stockSource || 'factory') === 'online' ? (
+                                        <>
+                                          <Globe className="w-3 h-3 text-blue-600" />
+                                          <span>คลังออนไลน์</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Factory className="w-3 h-3 text-emerald-600" />
+                                          <span>คลังโรงงาน</span>
+                                        </>
+                                      )}
+                                    </span>
+
                                     <span className="text-xs font-bold text-slate-800">
                                       ผลิตได้รวม: <strong className="text-emerald-700">{formatWeight(entry.totalWeightKg)}</strong>
                                     </span>

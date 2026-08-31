@@ -13,6 +13,7 @@
         "totalAmount": { "type": "number" },
         "paymentStatus": { "type": "string" },
         "deliveryStatus": { "type": "string" },
+        "stockSource": { "type": "string", "enum": ["factory", "online"] },
         "note": { "type": "string" }
       },
       "required": ["orderNumber", "createdAt", "customer", "items", "totalWeightKg", "totalAmount", "paymentStatus", "deliveryStatus"]
@@ -25,6 +26,7 @@
         "dateKey": { "type": "string" },
         "shift": { "type": "string" },
         "shiftLabel": { "type": "string" },
+        "stockSource": { "type": "string", "enum": ["factory", "online"] },
         "items": { "type": "array" },
         "totalWeightKg": { "type": "number" },
         "recordedBy": { "type": "string" },

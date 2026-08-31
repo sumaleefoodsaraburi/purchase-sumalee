@@ -1,3 +1,5 @@
+export type StockLocation = 'factory' | 'online';
+
 export interface OrderItem {
   id: string;
   productName: string;
@@ -34,6 +36,7 @@ export interface PurchaseOrder {
   totalAmount: number;
   paymentStatus: PaymentStatus;
   deliveryStatus: DeliveryStatus;
+  stockSource?: StockLocation; // 'factory' (โรงงาน) | 'online' (ออนไลน์) - default 'factory'
   shippingFee?: number; // ค่าจัดส่ง (บาท)
   boxCount?: number;    // จำนวนกล่อง (กล่อง)
   note?: string;
@@ -60,6 +63,7 @@ export interface StockEntry {
   dateKey: string;        // YYYY-MM-DD e.g. "2026-08-03"
   shift: ProductionShift; // 'day' | 'night'
   shiftLabel?: string;    // e.g. "กะเช้า (08:00 - 20:00)"
+  stockSource?: StockLocation; // 'factory' (โรงงาน) | 'online' (ออนไลน์) - default 'factory'
   items: StockEntryItem[];
   totalWeightKg: number;
   recordedBy?: string;    // ชื่อผู้บันทึก / หัวหน้ากะ
@@ -71,6 +75,7 @@ export interface StockEntry {
 export interface DailyStockSummary {
   dateKey: string;             // YYYY-MM-DD
   dateThaiFull: string;        // e.g. "3 สิงหาคม 2569"
+  stockSource?: StockLocation | 'all'; // แหล่งสต็อคที่สรุป (โรงงาน / ออนไลน์ / ทั้งหมด)
   priorRemainingKg: number;    // ยอดคงเหลือยกมาจากเมื่อวาน (กก.)
   dayShiftWeightKg: number;    // ผลิตเพิ่มกะเช้าวันนี้ (กก.)
   nightShiftWeightKg: number;  // ผลิตเพิ่มกะดึกวันนี้ (กก.)

@@ -1,7 +1,7 @@
-import { StockEntry, PurchaseOrder, DailyStockSummary, ProductionShift } from '../types';
+import { StockEntry, PurchaseOrder, DailyStockSummary, ProductionShift, StockLocation } from '../types';
 import { THAI_FULL_MONTHS, THAI_SHORT_MONTHS } from './formatters';
 
-const STORAGE_KEY = 'sumalee_stock_entries_v1';
+const STORAGE_KEY = 'sumalee_stock_entries_v2';
 
 export const FACTORY_STOCK_PRESET_NAMES = [
   'หอมเจียวยางแดง 5กก (รหัส OF01)',
@@ -18,7 +18,7 @@ export const FACTORY_STOCK_PRESET_NAMES = [
 export const STOCK_CUTOFF_DATE = '2026-08-01';
 
 /**
- * Normalize product names to match the factory stock products.
+ * Normalize product names to match the factory/online stock products.
  * Returns null if the product is not one of the stock products.
  */
 export function normalizeProductName(name: string): string | null {
@@ -40,7 +40,7 @@ export function normalizeProductName(name: string): string | null {
 }
 
 /**
- * Sample Initial Stock Production Entries using preset products
+ * Sample Initial Stock Production Entries with factory & online source separation
  */
 export function getSampleStockEntries(): StockEntry[] {
   const todayStr = '2026-08-03';
@@ -53,8 +53,9 @@ export function getSampleStockEntries(): StockEntry[] {
       dateKey: todayStr,
       shift: 'day',
       shiftLabel: 'กะเช้า (08:00 - 20:00)',
+      stockSource: 'factory',
       recordedBy: 'สมชาย (หัวหน้ากะเช้า)',
-      note: 'ผลิตล็อตปกติประจำวัน เครื่องจักรทำงานปกติ',
+      note: 'ผลิตล็อตปกติประจำวัน เครื่องจักรทำงานปกติ (สต็อคโรงงาน)',
       totalWeightKg: 750,
       createdAt: '2026-08-03T08:30:00.000Z',
       items: [
@@ -69,10 +70,28 @@ export function getSampleStockEntries(): StockEntry[] {
       ],
     },
     {
+      id: 'stk-20260803-online',
+      dateKey: todayStr,
+      shift: 'day',
+      shiftLabel: 'กะเช้า (08:00 - 20:00)',
+      stockSource: 'online',
+      recordedBy: 'สุรีรัตน์ (แอดมินออนไลน์)',
+      note: 'เบิกเข้าคลังออนไลน์สำหรับออเดอร์ Shopee / TikTok / เพจ',
+      totalWeightKg: 200,
+      createdAt: '2026-08-03T09:15:00.000Z',
+      items: [
+        { id: 'onl-1', productName: 'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)', weightKg: 60 },
+        { id: 'onl-2', productName: 'หอมเจียวยางเขียว 100กรัม (รหัส OF02.02)', weightKg: 40 },
+        { id: 'onl-3', productName: 'หอมเจียวยางแดง 5กก (รหัส OF01)', weightKg: 50 },
+        { id: 'onl-4', productName: 'กระเทียมเจียวD สูตร40 (รหัส FG01)', weightKg: 50 },
+      ],
+    },
+    {
       id: 'stk-20260803-night',
       dateKey: todayStr,
       shift: 'night',
       shiftLabel: 'กะดึก (20:00 - 08:00)',
+      stockSource: 'factory',
       recordedBy: 'วิชัย (หัวหน้ากะดึก)',
       note: 'เร่งผลิตหอมเจียวและกระเทียมเจียวเพิ่มสำหรับส่งลูกค้า',
       totalWeightKg: 550,
@@ -90,6 +109,7 @@ export function getSampleStockEntries(): StockEntry[] {
       dateKey: yesterdayStr,
       shift: 'day',
       shiftLabel: 'กะเช้า (08:00 - 20:00)',
+      stockSource: 'factory',
       recordedBy: 'สมชาย (หัวหน้ากะเช้า)',
       note: 'ผลิตเต็มกำลัง',
       totalWeightKg: 800,
@@ -106,10 +126,28 @@ export function getSampleStockEntries(): StockEntry[] {
       ],
     },
     {
+      id: 'stk-20260802-online',
+      dateKey: yesterdayStr,
+      shift: 'day',
+      shiftLabel: 'กะเช้า (08:00 - 20:00)',
+      stockSource: 'online',
+      recordedBy: 'สุรีรัตน์ (แอดมินออนไลน์)',
+      note: 'จัดเตรียมสต็อคออนไลน์',
+      totalWeightKg: 150,
+      createdAt: '2026-08-02T10:00:00.000Z',
+      items: [
+        { id: 'onl-5', productName: 'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)', weightKg: 50 },
+        { id: 'onl-6', productName: 'หอมเจียวยางเขียว 100กรัม (รหัส OF02.02)', weightKg: 40 },
+        { id: 'onl-7', productName: 'หอมเจียวยางแดง 5กก (รหัส OF01)', weightKg: 30 },
+        { id: 'onl-8', productName: 'กระเทียมเจียวD สูตร40 (รหัส FG01)', weightKg: 30 },
+      ],
+    },
+    {
       id: 'stk-20260801-day',
       dateKey: prevStr,
       shift: 'day',
       shiftLabel: 'กะเช้า (08:00 - 20:00)',
+      stockSource: 'factory',
       recordedBy: 'สมชาย (หัวหน้ากะเช้า)',
       note: 'เริ่มเดือนใหม่ ผลิตสินค้าครบทุกรายการ',
       totalWeightKg: 720,
@@ -162,24 +200,41 @@ export function saveStockEntriesToLocalStorage(entries: StockEntry[]): void {
 
 /**
  * Calculate Daily Stock & Cumulative Sales Deduction Summary for a specific YYYY-MM-DD
- * Includes prior days' remaining balance (ยอดคงเหลือยกมาจากเมื่อวาน) starting from 1 Aug 2026
+ * Supports separate calculation for 'factory' (โรงงาน), 'online' (ออนไลน์), or 'all' (รวมทั้งหมด)
  */
 export function calculateDailyStockSummary(
   dateKey: string,
   stockEntries: StockEntry[],
-  orders: PurchaseOrder[]
+  orders: PurchaseOrder[],
+  stockSourceFilter: StockLocation | 'all' = 'factory'
 ): DailyStockSummary {
+  // Helper to test if a stock entry matches the source filter
+  const matchStockSource = (source?: StockLocation) => {
+    if (stockSourceFilter === 'all') return true;
+    const actual = source || 'factory';
+    return actual === stockSourceFilter;
+  };
+
+  // Helper to test if an order matches the source filter
+  const matchOrderSource = (source?: StockLocation) => {
+    if (stockSourceFilter === 'all') return true;
+    const actual = source || 'factory';
+    return actual === stockSourceFilter;
+  };
+
   // 1. Calculate PRIOR cumulative stock entries (STOCK_CUTOFF_DATE <= entry.dateKey < target dateKey)
   const priorProducedMap: Record<string, number> = {};
 
   stockEntries.forEach((entry) => {
     if (entry.dateKey && entry.dateKey >= STOCK_CUTOFF_DATE && entry.dateKey < dateKey) {
-      entry.items.forEach((item) => {
-        const pName = normalizeProductName(item.productName);
-        if (pName) {
-          priorProducedMap[pName] = (priorProducedMap[pName] || 0) + item.weightKg;
-        }
-      });
+      if (matchStockSource(entry.stockSource)) {
+        entry.items.forEach((item) => {
+          const pName = normalizeProductName(item.productName);
+          if (pName) {
+            priorProducedMap[pName] = (priorProducedMap[pName] || 0) + item.weightKg;
+          }
+        });
+      }
     }
   });
 
@@ -188,6 +243,8 @@ export function calculateDailyStockSummary(
 
   orders.forEach((order) => {
     if (order.deliveryStatus === 'cancelled') return;
+    if (!matchOrderSource(order.stockSource)) return;
+
     const d = new Date(order.createdAt);
     if (isNaN(d.getTime())) return;
 
@@ -207,7 +264,9 @@ export function calculateDailyStockSummary(
   });
 
   // 3. TODAY'S stock entries (dateKey === target dateKey)
-  const dayEntries = stockEntries.filter((e) => e.dateKey === dateKey);
+  const dayEntries = stockEntries.filter(
+    (e) => e.dateKey === dateKey && matchStockSource(e.stockSource)
+  );
 
   const producedProductMap: Record<string, { dayKg: number; nightKg: number; totalKg: number }> = {};
 
@@ -235,6 +294,7 @@ export function calculateDailyStockSummary(
 
   orders.forEach((order) => {
     if (order.deliveryStatus === 'cancelled') return;
+    if (!matchOrderSource(order.stockSource)) return;
 
     const d = new Date(order.createdAt);
     if (isNaN(d.getTime())) return;
@@ -254,7 +314,7 @@ export function calculateDailyStockSummary(
     }
   });
 
-  // 5. Exclusively calculate the 4 preset products
+  // 5. Exclusively calculate preset products
   let priorRemainingKg = 0;
   let dayShiftWeightKg = 0;
   let nightShiftWeightKg = 0;
@@ -309,6 +369,7 @@ export function calculateDailyStockSummary(
   return {
     dateKey,
     dateThaiFull,
+    stockSource: stockSourceFilter,
     priorRemainingKg,
     dayShiftWeightKg,
     nightShiftWeightKg,
@@ -326,17 +387,33 @@ export function calculateDailyStockSummary(
  */
 export function getAllDailyStockSummaries(
   stockEntries: StockEntry[],
-  orders: PurchaseOrder[]
+  orders: PurchaseOrder[],
+  stockSourceFilter: StockLocation | 'all' = 'factory'
 ): DailyStockSummary[] {
   const datesSet = new Set<string>();
 
+  const matchStockSource = (source?: StockLocation) => {
+    if (stockSourceFilter === 'all') return true;
+    const actual = source || 'factory';
+    return actual === stockSourceFilter;
+  };
+
+  const matchOrderSource = (source?: StockLocation) => {
+    if (stockSourceFilter === 'all') return true;
+    const actual = source || 'factory';
+    return actual === stockSourceFilter;
+  };
+
   // Collect dateKeys from stockEntries (Aug 1 onwards)
   stockEntries.forEach((e) => {
-    if (e.dateKey && e.dateKey >= STOCK_CUTOFF_DATE) datesSet.add(e.dateKey);
+    if (e.dateKey && e.dateKey >= STOCK_CUTOFF_DATE && matchStockSource(e.stockSource)) {
+      datesSet.add(e.dateKey);
+    }
   });
 
   // Collect dateKeys from orders (Aug 1 onwards)
   orders.forEach((o) => {
+    if (!matchOrderSource(o.stockSource)) return;
     const d = new Date(o.createdAt);
     if (!isNaN(d.getTime())) {
       const year = d.getFullYear();
@@ -358,5 +435,25 @@ export function getAllDailyStockSummaries(
 
   const datesArray = Array.from(datesSet).sort((a, b) => b.localeCompare(a));
 
-  return datesArray.map((dKey) => calculateDailyStockSummary(dKey, stockEntries, orders));
+  return datesArray.map((dKey) =>
+    calculateDailyStockSummary(dKey, stockEntries, orders, stockSourceFilter)
+  );
 }
+
+/**
+ * Get quick stock balance map for today or specified date
+ */
+export function getProductStockBalanceMap(
+  dateKey: string,
+  stockEntries: StockEntry[],
+  orders: PurchaseOrder[],
+  stockSource: StockLocation | 'all' = 'factory'
+): Record<string, number> {
+  const summary = calculateDailyStockSummary(dateKey, stockEntries, orders, stockSource);
+  const map: Record<string, number> = {};
+  summary.productBreakdown.forEach((p) => {
+    map[p.productName] = p.remainingKg;
+  });
+  return map;
+}
+

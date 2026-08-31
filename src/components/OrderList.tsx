@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PurchaseOrder, SummaryPeriod } from '../types';
+import { PurchaseOrder, SummaryPeriod, StockLocation } from '../types';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 import {
   formatCurrency,
@@ -25,6 +25,8 @@ import {
   Clock,
   Package,
   FileSpreadsheet,
+  Factory,
+  Globe,
 } from 'lucide-react';
 
 interface OrderListProps {
@@ -48,6 +50,7 @@ export const OrderList: React.FC<OrderListProps> = ({
   const [selectedPeriod, setSelectedPeriod] = useState<SummaryPeriod | string>('all');
   const [specificDate, setSpecificDate] = useState<string>('');
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
+  const [stockSourceFilter, setStockSourceFilter] = useState<string>('all');
   const [orderToDelete, setOrderToDelete] = useState<PurchaseOrder | null>(null);
 
   // Available months from data
@@ -68,6 +71,11 @@ export const OrderList: React.FC<OrderListProps> = ({
   } else if (selectedPeriod !== 'all') {
     // Specific month key e.g. "2026-06"
     filtered = filterOrdersByMonth(filtered, selectedPeriod);
+  }
+
+  // Stock Source Filter
+  if (stockSourceFilter !== 'all') {
+    filtered = filtered.filter((o) => (o.stockSource || 'factory') === stockSourceFilter);
   }
 
   // Payment Status Filter
@@ -100,6 +108,7 @@ export const OrderList: React.FC<OrderListProps> = ({
     const headers = [
       'เลขที่ใบสั่งซื้อ',
       'วันที่สั่งซื้อ',
+      'ตัดสต็อคจาก',
       'ชื่อลูกค้า',
       'เบอร์โทรศัพท์',
       'ที่อยู่จัดส่ง',
@@ -139,6 +148,7 @@ export const OrderList: React.FC<OrderListProps> = ({
           ? 'ยกเลิก'
           : 'รอดำเนินการ';
 
+      const stockSourceLabel = (o.stockSource || 'factory') === 'online' ? 'สต็อคออนไลน์' : 'สต็อคโรงงาน';
       const taxInvoiceLabel = o.taxInvoice?.isRequested ? 'ขอใบกำกับภาษี' : 'ไม่ระบุ';
       const subtotal = o.subtotalAmount || (o.items ? o.items.reduce((s, it) => s + (it.totalPrice || 0), 0) : 0);
       const shippingVal = o.shippingFee || 0;
@@ -161,6 +171,7 @@ export const OrderList: React.FC<OrderListProps> = ({
           const row = [
             `"${o.orderNumber}"`,
             `"${formatThaiDateTime(o.createdAt)}"`,
+            `"${stockSourceLabel}"`,
             `"${(o.customer?.name || '').replace(/"/g, '""')}"`,
             `"${(o.customer?.phone || '').replace(/"/g, '""')}"`,
             `"${(o.customer?.address || '').replace(/"/g, '""')}"`,
@@ -187,6 +198,7 @@ export const OrderList: React.FC<OrderListProps> = ({
         const row = [
           `"${o.orderNumber}"`,
           `"${formatThaiDateTime(o.createdAt)}"`,
+          `"${stockSourceLabel}"`,
           `"${(o.customer?.name || '').replace(/"/g, '""')}"`,
           `"${(o.customer?.phone || '').replace(/"/g, '""')}"`,
           `"${(o.customer?.address || '').replace(/"/g, '""')}"`,
@@ -336,19 +348,37 @@ export const OrderList: React.FC<OrderListProps> = ({
             </div>
           </div>
 
-          {/* Payment filter select */}
-          <div className="flex items-center gap-2">
-            <span className="text-slate-400 text-[11px]">ชำระเงิน:</span>
-            <select
-              value={paymentFilter}
-              onChange={(e) => setPaymentFilter(e.target.value)}
-              className="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-medium px-2.5 py-1 rounded-lg outline-none focus:ring-1 focus:ring-emerald-500"
-            >
-              <option value="all">ทุกสถานะ</option>
-              <option value="paid">ชำระแล้ว</option>
-              <option value="cod">เก็บเงินปลายทาง</option>
-              <option value="pending">รอชำระ</option>
-            </select>
+          {/* Stock Source & Payment filter select */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-400 text-[11px] flex items-center gap-1">
+                <Factory className="w-3.5 h-3.5" />
+                <span>คลังสต็อค:</span>
+              </span>
+              <select
+                value={stockSourceFilter}
+                onChange={(e) => setStockSourceFilter(e.target.value)}
+                className="bg-slate-50 border border-slate-200 text-slate-800 text-xs font-semibold px-2.5 py-1 rounded-lg outline-none focus:ring-1 focus:ring-emerald-500"
+              >
+                <option value="all">ทั้งหมด (โรงงาน + ออนไลน์)</option>
+                <option value="factory">🏭 สต็อคโรงงาน</option>
+                <option value="online">🌐 สต็อคออนไลน์</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-400 text-[11px]">ชำระเงิน:</span>
+              <select
+                value={paymentFilter}
+                onChange={(e) => setPaymentFilter(e.target.value)}
+                className="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-medium px-2.5 py-1 rounded-lg outline-none focus:ring-1 focus:ring-emerald-500"
+              >
+                <option value="all">ทุกสถานะ</option>
+                <option value="paid">ชำระแล้ว</option>
+                <option value="cod">เก็บเงินปลายทาง</option>
+                <option value="pending">รอชำระ</option>
+              </select>
+            </div>
           </div>
 
         </div>
@@ -406,6 +436,25 @@ export const OrderList: React.FC<OrderListProps> = ({
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-mono font-bold text-sm text-slate-900 bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200">
                     {order.orderNumber}
+                  </span>
+                  <span
+                    className={`text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 border ${
+                      order.stockSource === 'online'
+                        ? 'bg-blue-50 text-blue-700 border-blue-200'
+                        : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                    }`}
+                  >
+                    {order.stockSource === 'online' ? (
+                      <>
+                        <Globe className="w-3 h-3 text-blue-600" />
+                        <span>ออนไลน์</span>
+                      </>
+                    ) : (
+                      <>
+                        <Factory className="w-3 h-3 text-emerald-600" />
+                        <span>โรงงาน</span>
+                      </>
+                    )}
                   </span>
                   {order.taxInvoice?.isRequested && (
                     <span className="bg-purple-50 text-purple-700 border border-purple-200 text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PurchaseOrder, OrderItem, PaymentStatus, DeliveryStatus, TaxInvoiceInfo } from '../types';
+import { PurchaseOrder, OrderItem, PaymentStatus, DeliveryStatus, TaxInvoiceInfo, StockLocation } from '../types';
 import { POPULAR_PRODUCTS_PRESETS } from '../data/sampleOrders';
 import { formatCurrency, formatWeight, generatePoNumber } from '../utils/formatters';
 import {
@@ -22,6 +22,8 @@ import {
   Box,
   DollarSign,
   Percent,
+  Factory,
+  Globe,
 } from 'lucide-react';
 
 interface OrderFormModalProps {
@@ -52,6 +54,7 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
 
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('paid');
   const [deliveryStatus, setDeliveryStatus] = useState<DeliveryStatus>('pending');
+  const [stockSource, setStockSource] = useState<StockLocation>('factory');
   const [note, setNote] = useState('');
 
   // Shipping Fee & Box Count State
@@ -104,6 +107,7 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
 
       setPaymentStatus(editingOrder.paymentStatus);
       setDeliveryStatus(editingOrder.deliveryStatus);
+      setStockSource(editingOrder.stockSource || 'factory');
       setNote(editingOrder.note || '');
 
       setShippingFee(editingOrder.shippingFee !== undefined ? editingOrder.shippingFee : '');
@@ -151,6 +155,7 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
     setOrderDate(new Date(Date.now() - tzoffset).toISOString().slice(0, 16));
     setPaymentStatus('paid');
     setDeliveryStatus('pending');
+    setStockSource('factory');
     setNote('');
     setShippingFee('');
     setBoxCount('');
@@ -328,6 +333,7 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
       boxCount: parsedBoxCount,
       paymentStatus,
       deliveryStatus,
+      stockSource,
       note: note.trim(),
       taxInvoice: {
         isRequested: requestTaxInvoice,
@@ -818,6 +824,109 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
               <span className="text-2xl font-black text-emerald-300">
                 {formatCurrency(grandTotalAmount)}
               </span>
+            </div>
+          </div>
+
+          {/* SECTION: STOCK DEDUCTION SOURCE (โรงงาน หรือ ออนไลน์) */}
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <Factory className="w-4 h-4 text-emerald-600" />
+                  <span>3. เลือกตัดสต็อคสินค้า (โรงงาน หรือ ออนไลน์)</span>
+                  <span className="text-rose-500">*</span>
+                </h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  ระบุคลังที่ต้องการให้ระบบตัดสต็อคสินค้าสำหรับออเดอร์นี้
+                </p>
+              </div>
+              <span
+                className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
+                  stockSource === 'online'
+                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                    : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                }`}
+              >
+                {stockSource === 'online' ? '🌐 ตัดสต็อคออนไลน์' : '🏭 ตัดสต็อคโรงงาน'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              {/* Option 1: Factory Stock */}
+              <button
+                type="button"
+                onClick={() => setStockSource('factory')}
+                className={`p-3.5 rounded-xl border-2 text-left transition-all relative ${
+                  stockSource === 'factory'
+                    ? 'bg-emerald-50/60 border-emerald-600 shadow-sm ring-2 ring-emerald-200/50'
+                    : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                      stockSource === 'factory'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-500'
+                    }`}
+                  >
+                    <Factory className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-900">
+                        ตัดสต็อคโรงงาน (Factory)
+                      </span>
+                      {stockSource === 'factory' && (
+                        <span className="text-[10px] font-bold bg-emerald-600 text-white px-2 py-0.5 rounded-full">
+                          เลือกอยู่
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1 leading-snug">
+                      สำหรับออเดอร์ส่งออกจากโรงงานหลัก / ตัวแทนจำหน่าย / ร้านค้าส่ง
+                    </p>
+                  </div>
+                </div>
+              </button>
+
+              {/* Option 2: Online Stock */}
+              <button
+                type="button"
+                onClick={() => setStockSource('online')}
+                className={`p-3.5 rounded-xl border-2 text-left transition-all relative ${
+                  stockSource === 'online'
+                    ? 'bg-blue-50/70 border-blue-600 shadow-sm ring-2 ring-blue-200/50'
+                    : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                      stockSource === 'online'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-500'
+                    }`}
+                  >
+                    <Globe className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-900">
+                        ตัดสต็อคออนไลน์ (Online)
+                      </span>
+                      {stockSource === 'online' && (
+                        <span className="text-[10px] font-bold bg-blue-600 text-white px-2 py-0.5 rounded-full">
+                          เลือกอยู่
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1 leading-snug">
+                      สำหรับออเดอร์ขายออนไลน์ Shopee / TikTok Shop / LINE OA / Facebook
+                    </p>
+                  </div>
+                </div>
+              </button>
             </div>
           </div>
 
