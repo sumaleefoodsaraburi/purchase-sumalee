@@ -32,6 +32,7 @@ import {
   TrendingDown,
   Factory,
   Globe,
+  ShoppingCart,
 } from 'lucide-react';
 
 interface StockManagementModalProps {
@@ -1169,6 +1170,98 @@ export const StockManagementModal: React.FC<StockManagementModalProps> = ({
                           </div>
                         </div>
                       ))}
+                  </div>
+                )}
+              </div>
+
+              {/* DEDUCTED ORDERS DETAILED VERIFICATION LIST FOR THIS DAY */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <ShoppingCart className="w-4 h-4 text-rose-600" />
+                    <div>
+                      <h4 className="text-xs font-extrabold text-slate-900">
+                        รายการใบสั่งซื้อที่ถูกนำมาตัดยอดสต็อคในวันนี้ ({dailySummary.deductedOrders?.length || 0} รายการ)
+                      </h4>
+                      <p className="text-[11px] text-slate-500">
+                        ระบบคำนวณตัดสต็อคออกอัตโนมัติตามใบสั่งซื้อที่คีย์ในคลัง{' '}
+                        <strong>{stockSourceFilter === 'online' ? 'ออนไลน์' : stockSourceFilter === 'factory' ? 'โรงงาน' : 'ทั้งหมด'}</strong>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs text-slate-500 block">ตัดยอดขายรวมทั้งสิ้น</span>
+                    <span className="text-sm font-black text-rose-700">
+                      -{formatWeight(dailySummary.totalSoldKg)}
+                    </span>
+                  </div>
+                </div>
+
+                {(!dailySummary.deductedOrders || dailySummary.deductedOrders.length === 0) ? (
+                  <div className="text-xs text-slate-400 italic p-3.5 bg-slate-50 rounded-xl border border-slate-100 text-center">
+                    ไม่มีใบสั่งซื้อที่ตรงกับวันที่และคลังที่เลือก (ไม่มีการตัดยอดขาย)
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {dailySummary.deductedOrders.map((order, oIdx) => (
+                      <div
+                        key={order.id || oIdx}
+                        className="p-3 bg-rose-50/40 rounded-xl border border-rose-100 hover:border-rose-300 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs font-black font-mono text-slate-900 bg-white px-2 py-0.5 rounded-md border border-slate-200">
+                              {order.orderNumber}
+                            </span>
+                            <span className="text-xs font-bold text-slate-800">
+                              {order.customerName}
+                            </span>
+                            {order.customerPhone && (
+                              <span className="text-[11px] text-slate-500">
+                                ({order.customerPhone})
+                              </span>
+                            )}
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                                order.stockSource === 'online'
+                                  ? 'bg-blue-100 text-blue-800 border-blue-200'
+                                  : 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                              }`}
+                            >
+                              {order.stockSource === 'online' ? '🌐 คลังออนไลน์' : '🏭 คลังโรงงาน'}
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              {new Date(order.createdAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.
+                            </span>
+                          </div>
+
+                          {/* Ordered Items Breakdown */}
+                          <div className="flex flex-wrap gap-1.5 pt-1">
+                            {order.items.map((it, itIdx) => (
+                              <span
+                                key={itIdx}
+                                className="text-[11px] bg-white text-slate-700 px-2 py-0.5 rounded-md border border-slate-200 flex items-center gap-1"
+                              >
+                                <span className="text-slate-600">{it.productName}:</span>
+                                <strong className="text-rose-700 font-bold">-{formatWeight(it.weightKg)}</strong>
+                                {it.packSize && (
+                                  <span className="text-[9px] text-slate-400 bg-slate-100 px-1 rounded">
+                                    {it.packSize}
+                                  </span>
+                                )}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <span className="text-[10px] text-slate-500 block">ตัดสต็อคออเดอร์นี้</span>
+                          <span className="text-xs font-black text-rose-700">
+                            -{formatWeight(order.totalWeightKg)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

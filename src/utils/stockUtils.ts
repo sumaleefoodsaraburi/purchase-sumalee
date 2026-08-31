@@ -19,24 +19,108 @@ export const STOCK_CUTOFF_DATE = '2026-08-01';
 
 /**
  * Normalize product names to match the factory/online stock products.
- * Returns null if the product is not one of the stock products.
+ * If matched with one of the standard factory/online stock preset codes, returns the standardized name.
+ * Otherwise returns the trimmed original name so custom stock products are accurately tracked.
  */
-export function normalizeProductName(name: string): string | null {
-  if (!name) return null;
+export function normalizeProductName(name: string): string {
+  if (!name) return '';
   const t = name.trim();
+  const lower = t.toLowerCase();
+
+  // Fried Shallots (หอมเจียว)
   if (t.includes('OF01') || t.includes('ยางแดง')) return 'หอมเจียวยางแดง 5กก (รหัส OF01)';
-  if (t.includes('OF02.02') || ((t.includes('100กรัม') || t.includes('100 กรัม')) && (t.includes('หอม') || t.includes('ยางเขียว')))) return 'หอมเจียวยางเขียว 100กรัม (รหัส OF02.02)';
-  if (t.includes('OF02.01') || ((t.includes('500กรัม') || t.includes('500 กรัม')) && (t.includes('หอม') || t.includes('ยางเขียว')))) return 'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)';
+  if (
+    t.includes('OF02.02') ||
+    ((t.includes('100กรัม') || t.includes('100 กรัม') || lower.includes('100g') || t.includes('100 ก.')) &&
+      (t.includes('หอม') || t.includes('ยางเขียว')))
+  ) {
+    return 'หอมเจียวยางเขียว 100กรัม (รหัส OF02.02)';
+  }
+  if (
+    t.includes('OF02.01') ||
+    ((t.includes('500กรัม') || t.includes('500 กรัม') || lower.includes('500g') || t.includes('500 ก.')) &&
+      (t.includes('หอม') || t.includes('ยางเขียว')))
+  ) {
+    return 'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)';
+  }
   if (t.includes('OF02') || t.includes('ยางเขียว')) return 'หอมเจียวยางเขียว 5กก (รหัส OF02)';
-  if (t.includes('OF03') || t.includes('แป้งหนา') || t.includes('หอมเจียวC') || t.includes('หอมเจียว C') || t.includes('หอมเจียว c')) return 'หอมเจียวC 5กก (รหัส OF03)';
+  if (
+    t.includes('OF03') ||
+    t.includes('แป้งหนา') ||
+    t.includes('หอมเจียวC') ||
+    t.includes('หอมเจียว C') ||
+    lower.includes('หอมเจียว c')
+  ) {
+    return 'หอมเจียวC 5กก (รหัส OF03)';
+  }
 
-  // Garlic stock items
-  if (t.includes('FG01') || (t.includes('กระเทียม') && (t.includes('สูตร40') || t.includes('สูตร 40') || t.includes('สูตร 4') || t.includes('สูตร4') || t.includes('เจียวD') || t.includes('เจียว D')))) return 'กระเทียมเจียวD สูตร40 (รหัส FG01)';
-  if (t.includes('FG03') || (t.includes('กระเทียม') && (t.includes('สูตร60') || t.includes('สูตร 60') || t.includes('สูตร 6') || t.includes('สูตร6') || t.includes('เจียวC') || t.includes('เจียว C')))) return 'กระเทียมเจียวC สูตร60 (รหัส FG03)';
-  if (t.includes('FG04') || (t.includes('กระเทียม') && (t.includes('สูตร80') || t.includes('สูตร 80') || t.includes('สูตร 8') || t.includes('สูตร8') || t.includes('เจียวB') || t.includes('เจียว B')))) return 'กระเทียมเจียวB สูตร80 (รหัส FG04)';
-  if (t.includes('FG06') || (t.includes('กระเทียม') && (t.includes('สูตร100') || t.includes('สูตร 100') || t.includes('สูตร 1') || t.includes('สูตร1') || t.includes('เจียวA') || t.includes('เจียว A')))) return 'กระเทียมเจียวA สูตร100 (รหัส FG06)';
+  // Generic Shallots patterns
+  if (t.includes('หอมเจียว') || t.includes('หอมทอด')) {
+    if (t.includes('100')) return 'หอมเจียวยางเขียว 100กรัม (รหัส OF02.02)';
+    if (t.includes('500')) return 'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)';
+    return 'หอมเจียวยางเขียว 5กก (รหัส OF02)';
+  }
 
-  return null;
+  // Fried Garlic (กระเทียมเจียว)
+  if (
+    t.includes('FG01') ||
+    (t.includes('กระเทียม') &&
+      (t.includes('สูตร40') ||
+        t.includes('สูตร 40') ||
+        t.includes('สูตร 4') ||
+        t.includes('สูตร4') ||
+        t.includes('เจียวD') ||
+        t.includes('เจียว D') ||
+        t.includes('เจียว d')))
+  ) {
+    return 'กระเทียมเจียวD สูตร40 (รหัส FG01)';
+  }
+  if (
+    t.includes('FG03') ||
+    (t.includes('กระเทียม') &&
+      (t.includes('สูตร60') ||
+        t.includes('สูตร 60') ||
+        t.includes('สูตร 6') ||
+        t.includes('สูตร6') ||
+        t.includes('เจียวC') ||
+        t.includes('เจียว C') ||
+        lower.includes('เจียว c')))
+  ) {
+    return 'กระเทียมเจียวC สูตร60 (รหัส FG03)';
+  }
+  if (
+    t.includes('FG04') ||
+    (t.includes('กระเทียม') &&
+      (t.includes('สูตร80') ||
+        t.includes('สูตร 80') ||
+        t.includes('สูตร 8') ||
+        t.includes('สูตร8') ||
+        t.includes('เจียวB') ||
+        t.includes('เจียว B') ||
+        lower.includes('เจียว b')))
+  ) {
+    return 'กระเทียมเจียวB สูตร80 (รหัส FG04)';
+  }
+  if (
+    t.includes('FG06') ||
+    (t.includes('กระเทียม') &&
+      (t.includes('สูตร100') ||
+        t.includes('สูตร 100') ||
+        t.includes('สูตร 1') ||
+        t.includes('สูตร1') ||
+        t.includes('เจียวA') ||
+        t.includes('เจียว A') ||
+        lower.includes('เจียว a')))
+  ) {
+    return 'กระเทียมเจียวA สูตร100 (รหัส FG06)';
+  }
+
+  // Generic Garlic
+  if (t.includes('กระเทียมเจียว')) {
+    return 'กระเทียมเจียวD สูตร40 (รหัส FG01)';
+  }
+
+  return t;
 }
 
 /**
@@ -222,19 +306,23 @@ export function calculateDailyStockSummary(
     return actual === stockSourceFilter;
   };
 
+  // Set of all unique product names across presets, stock entries, and orders
+  const allProductNamesSet = new Set<string>(FACTORY_STOCK_PRESET_NAMES);
+
   // 1. Calculate PRIOR cumulative stock entries (STOCK_CUTOFF_DATE <= entry.dateKey < target dateKey)
   const priorProducedMap: Record<string, number> = {};
 
   stockEntries.forEach((entry) => {
-    if (entry.dateKey && entry.dateKey >= STOCK_CUTOFF_DATE && entry.dateKey < dateKey) {
-      if (matchStockSource(entry.stockSource)) {
-        entry.items.forEach((item) => {
-          const pName = normalizeProductName(item.productName);
-          if (pName) {
-            priorProducedMap[pName] = (priorProducedMap[pName] || 0) + item.weightKg;
+    if (matchStockSource(entry.stockSource)) {
+      entry.items.forEach((item) => {
+        const pName = normalizeProductName(item.productName);
+        if (pName) {
+          allProductNamesSet.add(pName);
+          if (entry.dateKey && entry.dateKey >= STOCK_CUTOFF_DATE && entry.dateKey < dateKey) {
+            priorProducedMap[pName] = (priorProducedMap[pName] || 0) + (Number(item.weightKg) || 0);
           }
-        });
-      }
+        }
+      });
     }
   });
 
@@ -253,14 +341,15 @@ export function calculateDailyStockSummary(
     const day = String(d.getDate()).padStart(2, '0');
     const oDateKey = `${y}-${m}-${day}`;
 
-    if (oDateKey >= STOCK_CUTOFF_DATE && oDateKey < dateKey) {
-      order.items.forEach((item) => {
-        const pName = normalizeProductName(item.productName);
-        if (pName) {
-          priorSoldMap[pName] = (priorSoldMap[pName] || 0) + item.weightKg;
+    order.items.forEach((item) => {
+      const pName = normalizeProductName(item.productName);
+      if (pName) {
+        allProductNamesSet.add(pName);
+        if (oDateKey >= STOCK_CUTOFF_DATE && oDateKey < dateKey) {
+          priorSoldMap[pName] = (priorSoldMap[pName] || 0) + (Number(item.weightKg) || 0);
         }
-      });
-    }
+      }
+    });
   });
 
   // 3. TODAY'S stock entries (dateKey === target dateKey)
@@ -276,21 +365,24 @@ export function calculateDailyStockSummary(
     entry.items.forEach((item) => {
       const pName = normalizeProductName(item.productName);
       if (!pName) return;
+      allProductNamesSet.add(pName);
 
       if (!producedProductMap[pName]) {
         producedProductMap[pName] = { dayKg: 0, nightKg: 0, totalKg: 0 };
       }
+      const w = Number(item.weightKg) || 0;
       if (isDay) {
-        producedProductMap[pName].dayKg += item.weightKg;
+        producedProductMap[pName].dayKg += w;
       } else {
-        producedProductMap[pName].nightKg += item.weightKg;
+        producedProductMap[pName].nightKg += w;
       }
-      producedProductMap[pName].totalKg += item.weightKg;
+      producedProductMap[pName].totalKg += w;
     });
   });
 
-  // 4. TODAY'S orders (order dateKey === target dateKey)
+  // 4. TODAY'S orders (order dateKey === target dateKey) and collect deducted orders
   const soldProductMap: Record<string, number> = {};
+  const deductedOrdersList: NonNullable<DailyStockSummary['deductedOrders']> = [];
 
   orders.forEach((order) => {
     if (order.deliveryStatus === 'cancelled') return;
@@ -305,16 +397,40 @@ export function calculateDailyStockSummary(
     const oDateKey = `${y}-${m}-${day}`;
 
     if (oDateKey === dateKey) {
-      order.items.forEach((item) => {
+      let orderMatchedWeight = 0;
+      const orderItems = order.items.map((item) => {
         const pName = normalizeProductName(item.productName);
+        const w = Number(item.weightKg) || 0;
         if (pName) {
-          soldProductMap[pName] = (soldProductMap[pName] || 0) + item.weightKg;
+          allProductNamesSet.add(pName);
+          soldProductMap[pName] = (soldProductMap[pName] || 0) + w;
+          orderMatchedWeight += w;
         }
+        return {
+          productName: item.productName,
+          weightKg: w,
+          pricePerKg: Number(item.pricePerKg) || 0,
+          totalPrice: Number(item.totalPrice) || 0,
+          packSize: item.packSize,
+        };
+      });
+
+      deductedOrdersList.push({
+        id: order.id,
+        orderNumber: order.orderNumber,
+        customerName: order.customer.name,
+        customerPhone: order.customer.phone,
+        stockSource: order.stockSource || 'factory',
+        createdAt: order.createdAt,
+        deliveryStatus: order.deliveryStatus,
+        paymentStatus: order.paymentStatus,
+        totalWeightKg: order.totalWeightKg || orderMatchedWeight,
+        items: orderItems,
       });
     }
   });
 
-  // 5. Exclusively calculate preset products
+  // 5. Calculate breakdown across all tracked products (preset + any dynamic products)
   let priorRemainingKg = 0;
   let dayShiftWeightKg = 0;
   let nightShiftWeightKg = 0;
@@ -322,17 +438,23 @@ export function calculateDailyStockSummary(
   let totalAvailableKg = 0;
   let totalSoldKg = 0;
 
-  const productBreakdown = FACTORY_STOCK_PRESET_NAMES.map((pName) => {
+  // Ensure preset products appear in default order first, then any extra custom products
+  const orderedProductNames = [
+    ...FACTORY_STOCK_PRESET_NAMES,
+    ...Array.from(allProductNamesSet).filter((p) => !FACTORY_STOCK_PRESET_NAMES.includes(p)),
+  ];
+
+  const productBreakdown = orderedProductNames.map((pName) => {
     const pPriorProd = priorProducedMap[pName] || 0;
     const pPriorSold = priorSoldMap[pName] || 0;
-    const pPriorRemaining = pPriorProd - pPriorSold;
+    const pPriorRemaining = Math.max(0, Math.round((pPriorProd - pPriorSold) * 100) / 100);
 
     const prod = producedProductMap[pName] || { dayKg: 0, nightKg: 0, totalKg: 0 };
-    const pTodayProduced = prod.totalKg;
-    const pAvailable = pPriorRemaining + pTodayProduced;
+    const pTodayProduced = Math.round(prod.totalKg * 100) / 100;
+    const pAvailable = Math.round((pPriorRemaining + pTodayProduced) * 100) / 100;
 
-    const pTodaySold = soldProductMap[pName] || 0;
-    const pRemaining = pAvailable - pTodaySold;
+    const pTodaySold = Math.round((soldProductMap[pName] || 0) * 100) / 100;
+    const pRemaining = Math.round((pAvailable - pTodaySold) * 100) / 100;
 
     priorRemainingKg += pPriorRemaining;
     dayShiftWeightKg += prod.dayKg;
@@ -344,8 +466,8 @@ export function calculateDailyStockSummary(
     return {
       productName: pName,
       priorRemainingKg: pPriorRemaining,
-      dayShiftKg: prod.dayKg,
-      nightShiftKg: prod.nightKg,
+      dayShiftKg: Math.round(prod.dayKg * 100) / 100,
+      nightShiftKg: Math.round(prod.nightKg * 100) / 100,
       producedKg: pTodayProduced,
       availableKg: pAvailable,
       soldKg: pTodaySold,
@@ -353,7 +475,7 @@ export function calculateDailyStockSummary(
     };
   });
 
-  const remainingStockKg = totalAvailableKg - totalSoldKg;
+  const remainingStockKg = Math.round((totalAvailableKg - totalSoldKg) * 100) / 100;
 
   // Format Thai Date
   const parts = dateKey.split('-');
@@ -370,15 +492,69 @@ export function calculateDailyStockSummary(
     dateKey,
     dateThaiFull,
     stockSource: stockSourceFilter,
-    priorRemainingKg,
-    dayShiftWeightKg,
-    nightShiftWeightKg,
-    totalProducedKg,
-    totalAvailableKg,
-    totalSoldKg,
+    priorRemainingKg: Math.round(priorRemainingKg * 100) / 100,
+    dayShiftWeightKg: Math.round(dayShiftWeightKg * 100) / 100,
+    nightShiftWeightKg: Math.round(nightShiftWeightKg * 100) / 100,
+    totalProducedKg: Math.round(totalProducedKg * 100) / 100,
+    totalAvailableKg: Math.round(totalAvailableKg * 100) / 100,
+    totalSoldKg: Math.round(totalSoldKg * 100) / 100,
     remainingStockKg,
     entriesCount: dayEntries.length,
+    deductedOrders: deductedOrdersList,
     productBreakdown,
+  };
+}
+
+/**
+ * Get Realtime Available Ready-to-Sell Stock for a specific product and location
+ * Accurately deducts all active orders up to today (optionally excluding editing order)
+ */
+export function getRealtimeAvailableStock(
+  productName: string,
+  stockSource: StockLocation,
+  stockEntries: StockEntry[],
+  orders: PurchaseOrder[],
+  excludeOrderId?: string
+): { availableKg: number; totalProducedKg: number; totalSoldKg: number } {
+  const normName = normalizeProductName(productName);
+  if (!normName) {
+    return { availableKg: 0, totalProducedKg: 0, totalSoldKg: 0 };
+  }
+
+  // 1. Total produced in stock entries for stockSource
+  let totalProducedKg = 0;
+  stockEntries.forEach((entry) => {
+    const actualSource = entry.stockSource || 'factory';
+    if (actualSource === stockSource) {
+      entry.items.forEach((item) => {
+        if (normalizeProductName(item.productName) === normName) {
+          totalProducedKg += Number(item.weightKg) || 0;
+        }
+      });
+    }
+  });
+
+  // 2. Total sold in orders for stockSource (non-cancelled and excluding excludeOrderId)
+  let totalSoldKg = 0;
+  orders.forEach((order) => {
+    if (order.deliveryStatus === 'cancelled') return;
+    if (excludeOrderId && order.id === excludeOrderId) return;
+    const actualSource = order.stockSource || 'factory';
+    if (actualSource === stockSource) {
+      order.items.forEach((item) => {
+        if (normalizeProductName(item.productName) === normName) {
+          totalSoldKg += Number(item.weightKg) || 0;
+        }
+      });
+    }
+  });
+
+  const availableKg = Math.round((totalProducedKg - totalSoldKg) * 100) / 100;
+
+  return {
+    availableKg,
+    totalProducedKg: Math.round(totalProducedKg * 100) / 100,
+    totalSoldKg: Math.round(totalSoldKg * 100) / 100,
   };
 }
 

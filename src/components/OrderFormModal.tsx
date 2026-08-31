@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { PurchaseOrder, OrderItem, PaymentStatus, DeliveryStatus, TaxInvoiceInfo, StockLocation } from '../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { PurchaseOrder, OrderItem, PaymentStatus, DeliveryStatus, TaxInvoiceInfo, StockLocation, StockEntry } from '../types';
 import { POPULAR_PRODUCTS_PRESETS } from '../data/sampleOrders';
 import { formatCurrency, formatWeight, generatePoNumber } from '../utils/formatters';
+import { normalizeProductName, getRealtimeAvailableStock } from '../utils/stockUtils';
 import {
   X,
   Plus,
@@ -24,6 +25,10 @@ import {
   Percent,
   Factory,
   Globe,
+  Scale,
+  PackageCheck,
+  AlertTriangle,
+  Layers,
 } from 'lucide-react';
 
 interface OrderFormModalProps {
@@ -32,6 +37,7 @@ interface OrderFormModalProps {
   onSaveOrder: (order: PurchaseOrder) => void;
   editingOrder?: PurchaseOrder | null;
   existingOrders?: PurchaseOrder[];
+  stockEntries?: StockEntry[];
 }
 
 export const OrderFormModal: React.FC<OrderFormModalProps> = ({
@@ -40,6 +46,7 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
   onSaveOrder,
   editingOrder,
   existingOrders = [],
+  stockEntries = [],
 }) => {
   // Form State
   const [customerName, setCustomerName] = useState('');
@@ -563,163 +570,239 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
 
             {/* Quick Product Presets Bar */}
             <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-              <p className="text-[11px] font-semibold text-slate-500 mb-1.5 flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-amber-500" />
-                <span>คลิกเพื่อเลือกสินค้าด่วน (หรือพิมพ์เองได้):</span>
-              </p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1.5">
+                <p className="text-[11px] font-semibold text-slate-600 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-amber-500" />
+                  <span>คลิกเพื่อเลือกสินค้าด่วน (พร้อมเช็คยอดคงเหลือใน{stockSource === 'online' ? 'คลังออนไลน์' : 'คลังโรงงาน'}):</span>
+                </p>
+                <span className="text-[10px] text-slate-500 font-medium">
+                  {stockSource === 'online' ? '🌐 คลังออนไลน์' : '🏭 คลังโรงงาน'}
+                </span>
+              </div>
               <div className="flex flex-wrap gap-1.5">
-                {POPULAR_PRODUCTS_PRESETS.slice(0, 10).map((preset, pIdx) => (
-                  <button
-                    key={pIdx}
-                    type="button"
-                    onClick={() => {
-                      // Find first empty item or target last item
-                      const targetItem = items.find((i) => !i.productName) || items[items.length - 1];
-                      handleSelectPreset(targetItem.id, preset.name, preset.defaultPrice);
-                    }}
-                    className="text-[11px] bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 px-2 py-1 rounded-md border border-slate-200 transition-colors shrink-0"
-                  >
-                    + {preset.name} ({preset.defaultPrice}฿/กก.)
-                  </button>
-                ))}
+                {POPULAR_PRODUCTS_PRESETS.slice(0, 10).map((preset, pIdx) => {
+                  const presetStock = getRealtimeAvailableStock(
+                    preset.name,
+                    stockSource,
+                    stockEntries,
+                    existingOrders,
+                    editingOrder?.id
+                  );
+                  return (
+                    <button
+                      key={pIdx}
+                      type="button"
+                      onClick={() => {
+                        // Find first empty item or target last item
+                        const targetItem = items.find((i) => !i.productName) || items[items.length - 1];
+                        handleSelectPreset(targetItem.id, preset.name, preset.defaultPrice);
+                      }}
+                      className="text-[11px] bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 px-2 py-1 rounded-md border border-slate-200 transition-colors shrink-0 flex items-center gap-1"
+                    >
+                      <span>+ {preset.name} ({preset.defaultPrice}฿/กก.)</span>
+                      <span
+                        className={`text-[9px] px-1 py-0.2 rounded font-bold ${
+                          presetStock.availableKg > 0
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-rose-100 text-rose-800'
+                        }`}
+                        title={`ยอดผลิตทั้งหมด: ${presetStock.totalProducedKg} กก. / ตัดขายแล้ว: ${presetStock.totalSoldKg} กก.`}
+                      >
+                        เหลือ {presetStock.availableKg} กก.
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             {/* ITEMS LIST TABLE */}
             <div className="space-y-3">
-              {items.map((item, index) => (
-                <div
-                  key={item.id}
-                  className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm relative space-y-3 sm:space-y-0 sm:grid sm:grid-cols-12 sm:gap-2 sm:items-center"
-                >
-                  {/* Product Name */}
-                  <div className="sm:col-span-5">
-                    <label className="block text-[11px] font-semibold text-slate-500 mb-0.5">
-                      ชื่อสินค้า #{index + 1}
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="เช่น หอมเจียว, กระเทียมเจียว"
-                      value={item.productName}
-                      onChange={(e) => updateItemField(item.id, 'productName', e.target.value)}
-                      className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white border border-slate-300 rounded-lg text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-slate-900"
-                    />
-                  </div>
+              {items.map((item, index) => {
+                const stockInfo = item.productName
+                  ? getRealtimeAvailableStock(
+                      item.productName,
+                      stockSource,
+                      stockEntries,
+                      existingOrders,
+                      editingOrder?.id
+                    )
+                  : null;
 
-                  {/* Price per Kg */}
-                  <div className="sm:col-span-3">
-                    <label className="block text-[11px] font-semibold text-slate-500 mb-0.5">
-                      ราคา/กก. (บาท)
-                    </label>
-                    <input
-                      type="number"
-                      step="any"
-                      min="0"
-                      required
-                      placeholder="0.00"
-                      value={item.pricePerKg || ''}
-                      onChange={(e) => updateItemField(item.id, 'pricePerKg', e.target.value)}
-                      className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-                    />
-                  </div>
+                const remainingAfter = stockInfo
+                  ? Math.round((stockInfo.availableKg - (item.weightKg || 0)) * 100) / 100
+                  : null;
 
-                  {/* Weight in Kg */}
-                  <div className="sm:col-span-3">
-                    <label className="block text-[11px] font-semibold text-slate-500 mb-0.5">
-                      จำนวน (กก.)
-                    </label>
-                    <input
-                      type="number"
-                      step="any"
-                      min="0"
-                      required
-                      placeholder="0"
-                      value={item.weightKg || ''}
-                      onChange={(e) => updateItemField(item.id, 'weightKg', e.target.value)}
-                      className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white border border-slate-300 rounded-lg text-xs font-semibold text-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-                    />
-                  </div>
+                const isExceeding = stockInfo && item.weightKg > stockInfo.availableKg;
 
-                  {/* Delete button */}
-                  <div className="sm:col-span-1 flex justify-end items-center sm:pt-4">
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveItem(item.id)}
-                      disabled={items.length <= 1}
-                      className={`p-1.5 rounded-lg transition-colors ${
-                        items.length <= 1
-                          ? 'text-slate-300 cursor-not-allowed'
-                          : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
-                      }`}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                return (
+                  <div
+                    key={item.id}
+                    className={`bg-white p-3.5 rounded-xl border transition-all relative space-y-3 sm:space-y-0 sm:grid sm:grid-cols-12 sm:gap-2 sm:items-center ${
+                      isExceeding
+                        ? 'border-rose-300 ring-1 ring-rose-200'
+                        : 'border-slate-200 shadow-sm'
+                    }`}
+                  >
+                    {/* Product Name */}
+                    <div className="sm:col-span-5">
+                      <div className="flex items-center justify-between mb-0.5">
+                        <label className="block text-[11px] font-semibold text-slate-500">
+                          ชื่อสินค้า #{index + 1}
+                        </label>
+                        {stockInfo && item.productName && (
+                          <span
+                            className={`text-[10px] font-bold px-1.5 py-0.2 rounded-md ${
+                              stockInfo.availableKg <= 0
+                                ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                                : isExceeding
+                                ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                                : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                            }`}
+                          >
+                            พร้อมขาย {stockSource === 'online' ? 'ออนไลน์' : 'โรงงาน'}: {stockInfo.availableKg} กก.
+                          </span>
+                        )}
+                      </div>
+                      <input
+                        type="text"
+                        required
+                        placeholder="เช่น หอมเจียว, กระเทียมเจียว"
+                        value={item.productName}
+                        onChange={(e) => updateItemField(item.id, 'productName', e.target.value)}
+                        className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white border border-slate-300 rounded-lg text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-slate-900"
+                      />
+                    </div>
 
-                  {/* Pack Size Selection & Calculated Subtotal */}
-                  <div className="sm:col-span-12 flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] font-semibold text-slate-500">ขนาดแพ็ค:</span>
-                      <div className="inline-flex rounded-lg p-0.5 bg-slate-100 border border-slate-200 gap-0.5">
-                        <button
-                          type="button"
-                          onClick={() => updateItemField(item.id, 'packSize', '100g')}
-                          className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
-                            item.packSize === '100g'
-                              ? 'bg-emerald-600 text-white font-bold shadow-xs'
-                              : 'text-slate-600 hover:text-slate-900'
-                          }`}
-                        >
-                          แพ็ค 100 กรัม
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updateItemField(item.id, 'packSize', '500g')}
-                          className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
-                            item.packSize === '500g'
-                              ? 'bg-emerald-600 text-white font-bold shadow-xs'
-                              : 'text-slate-600 hover:text-slate-900'
-                          }`}
-                        >
-                          แพ็ค 500 กรัม
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updateItemField(item.id, 'packSize', '1kg')}
-                          className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
-                            (!item.packSize || item.packSize === '1kg')
-                              ? 'bg-white text-slate-900 font-bold shadow-xs border border-slate-200'
-                              : 'text-slate-600 hover:text-slate-900'
-                          }`}
-                        >
-                          แพ็ค 1 กก.
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updateItemField(item.id, 'packSize', '5kg')}
-                          className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
-                            item.packSize === '5kg'
-                              ? 'bg-emerald-600 text-white font-bold shadow-xs'
-                              : 'text-slate-600 hover:text-slate-900'
-                          }`}
-                        >
-                          แพ็ค 5 กิโลกรัม
-                        </button>
+                    {/* Price per Kg */}
+                    <div className="sm:col-span-3">
+                      <label className="block text-[11px] font-semibold text-slate-500 mb-0.5">
+                        ราคา/กก. (บาท)
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        min="0"
+                        required
+                        placeholder="0.00"
+                        value={item.pricePerKg || ''}
+                        onChange={(e) => updateItemField(item.id, 'pricePerKg', e.target.value)}
+                        className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                      />
+                    </div>
+
+                    {/* Weight in Kg */}
+                    <div className="sm:col-span-3">
+                      <label className="block text-[11px] font-semibold text-slate-500 mb-0.5">
+                        จำนวนตัดสต็อค (กก.)
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        min="0"
+                        required
+                        placeholder="0"
+                        value={item.weightKg || ''}
+                        onChange={(e) => updateItemField(item.id, 'weightKg', e.target.value)}
+                        className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white border border-slate-300 rounded-lg text-xs font-semibold text-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                      />
+                    </div>
+
+                    {/* Delete button */}
+                    <div className="sm:col-span-1 flex justify-end items-center sm:pt-4">
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveItem(item.id)}
+                        disabled={items.length <= 1}
+                        className={`p-1.5 rounded-lg transition-colors ${
+                          items.length <= 1
+                            ? 'text-slate-300 cursor-not-allowed'
+                            : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
+                        }`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Stock Deduction Indicator alert if exceeding */}
+                    {isExceeding && (
+                      <div className="sm:col-span-12 bg-rose-50 border border-rose-200 text-rose-800 px-2.5 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                        <span>
+                          ระวัง: รายการนี้คีย์ตัดสต็อค {item.weightKg} กก. เกินยอดพร้อมขายจริงใน{stockSource === 'online' ? 'คลังออนไลน์' : 'คลังโรงงาน'} ({stockInfo.availableKg} กก.) คงเหลือหลังตัดจะติดลบ ({remainingAfter} กก.)
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Pack Size Selection & Calculated Subtotal */}
+                    <div className="sm:col-span-12 flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] font-semibold text-slate-500">ขนาดแพ็ค:</span>
+                        <div className="inline-flex rounded-lg p-0.5 bg-slate-100 border border-slate-200 gap-0.5">
+                          <button
+                            type="button"
+                            onClick={() => updateItemField(item.id, 'packSize', '100g')}
+                            className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
+                              item.packSize === '100g'
+                                ? 'bg-emerald-600 text-white font-bold shadow-xs'
+                                : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                          >
+                            แพ็ค 100 กรัม
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateItemField(item.id, 'packSize', '500g')}
+                            className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
+                              item.packSize === '500g'
+                                ? 'bg-emerald-600 text-white font-bold shadow-xs'
+                                : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                          >
+                            แพ็ค 500 กรัม
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateItemField(item.id, 'packSize', '1kg')}
+                            className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
+                              (!item.packSize || item.packSize === '1kg')
+                                ? 'bg-white text-slate-900 font-bold shadow-xs border border-slate-200'
+                                : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                          >
+                            แพ็ค 1 กก.
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateItemField(item.id, 'packSize', '5kg')}
+                            className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
+                              item.packSize === '5kg'
+                                ? 'bg-emerald-600 text-white font-bold shadow-xs'
+                                : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                          >
+                            แพ็ค 5 กิโลกรัม
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 text-slate-500">
+                        {remainingAfter !== null && (
+                          <span className="text-[11px] text-slate-600 font-medium">
+                            ตัดแล้วคงเหลือ: <strong className={remainingAfter < 0 ? 'text-rose-600 font-bold' : 'text-emerald-700'}>{remainingAfter} กก.</strong>
+                          </span>
+                        )}
+                        <span>
+                          คำนวณ: {item.pricePerKg || 0} บาท × {item.weightKg || 0} กก.
+                        </span>
+                        <span className="font-bold text-slate-800">
+                          รวม = {formatCurrency(item.totalPrice)}
+                        </span>
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-3 text-slate-500">
-                      <span>
-                        คำนวณ: {item.pricePerKg || 0} บาท × {item.weightKg || 0} กก.
-                      </span>
-                      <span className="font-bold text-slate-800">
-                        รวม = {formatCurrency(item.totalPrice)}
-                      </span>
-                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -927,6 +1010,90 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
                   </div>
                 </div>
               </button>
+            </div>
+
+            {/* LIVE DEDUCTION PREVIEW TABLE FOR CURRENT SELECTION */}
+            <div className="mt-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs space-y-2">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <div className="flex items-center gap-1.5">
+                  <Scale className="w-4 h-4 text-emerald-600" />
+                  <span className="text-xs font-bold text-slate-800">
+                    ตารางจำลองการตัดสต็อคสินค้าจาก ({stockSource === 'online' ? '🌐 คลังออนไลน์' : '🏭 คลังโรงงาน'})
+                  </span>
+                </div>
+                <span className="text-[11px] text-slate-500 font-medium">
+                  ตัดตามรายการที่คีย์ {items.filter(i => i.productName && (i.weightKg || 0) > 0).length} รายการ
+                </span>
+              </div>
+
+              {items.filter(i => i.productName).length === 0 ? (
+                <p className="text-xs text-slate-400 italic py-2 text-center">
+                  ยังไม่มีการระบุชื่อสินค้าในรายการสั่งซื้อ
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                        <th className="p-2">สินค้า</th>
+                        <th className="p-2 text-right">ยอดตัดสั่งซื้อ (กก.)</th>
+                        <th className="p-2 text-right">สต็อคก่อนตัด (กก.)</th>
+                        <th className="p-2 text-right font-black">สต็อคคงเหลือหลังตัด (กก.)</th>
+                        <th className="p-2 text-center">สถานะ</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {items
+                        .filter((i) => i.productName)
+                        .map((item, idx) => {
+                          const stockInfo = getRealtimeAvailableStock(
+                            item.productName,
+                            stockSource,
+                            stockEntries,
+                            existingOrders,
+                            editingOrder?.id
+                          );
+                          const deductKg = item.weightKg || 0;
+                          const afterKg = Math.round((stockInfo.availableKg - deductKg) * 100) / 100;
+                          const isShort = afterKg < 0;
+
+                          return (
+                            <tr key={idx} className="hover:bg-slate-50/60">
+                              <td className="p-2 font-bold text-slate-900">
+                                {item.productName}
+                                <span className="block text-[10px] text-slate-400 font-normal">
+                                  {normalizeProductName(item.productName)}
+                                </span>
+                              </td>
+                              <td className="p-2 text-right font-bold text-rose-700">
+                                -{deductKg} กก.
+                              </td>
+                              <td className="p-2 text-right text-slate-600">
+                                {stockInfo.availableKg} กก.
+                              </td>
+                              <td className="p-2 text-right font-black">
+                                <span className={isShort ? 'text-rose-600' : 'text-emerald-700'}>
+                                  {afterKg} กก.
+                                </span>
+                              </td>
+                              <td className="p-2 text-center">
+                                {isShort ? (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-200">
+                                    ⚠️ สต็อคไม่พอ
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                    ✓ พอตัดสต็อค
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
 

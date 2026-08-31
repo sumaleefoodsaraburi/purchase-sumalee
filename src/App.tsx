@@ -352,6 +352,7 @@ export default function App() {
         onSaveOrder={handleSaveOrder}
         editingOrder={editingOrder}
         existingOrders={orders}
+        stockEntries={stockEntries}
       />
 
       {/* PRINTABLE RECEIPT MODAL */}

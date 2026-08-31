@@ -84,6 +84,24 @@ export interface DailyStockSummary {
   totalSoldKg: number;         // ตัดยอดขายออกวันนี้ (กก.)
   remainingStockKg: number;    // ยอดคงเหลือสุทธิยกไป (กก.) = พร้อมขายทั้งหมด - ตัดยอดขาย
   entriesCount: number;        // จำนวนครั้งบันทึกกะ
+  deductedOrders?: Array<{
+    id: string;
+    orderNumber: string;
+    customerName: string;
+    customerPhone: string;
+    stockSource: StockLocation;
+    createdAt: string;
+    deliveryStatus: DeliveryStatus;
+    paymentStatus: PaymentStatus;
+    totalWeightKg: number;
+    items: Array<{
+      productName: string;
+      weightKg: number;
+      pricePerKg: number;
+      totalPrice: number;
+      packSize?: string;
+    }>;
+  }>;
   productBreakdown: Array<{
     productName: string;
     priorRemainingKg: number;  // ยอดคงเหลือยกมาจากเมื่อวาน (กก.)
