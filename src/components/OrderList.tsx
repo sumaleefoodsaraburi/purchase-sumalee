@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { PurchaseOrder, SummaryPeriod, StockLocation } from '../types';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
+import { QuickTrackingModal } from './QuickTrackingModal';
 import {
   formatCurrency,
   formatWeight,
@@ -11,6 +12,12 @@ import {
   filterOrdersByMonth,
   filterOrdersByExactDate,
 } from '../utils/formatters';
+import {
+  getTrackingUrl,
+  getAllTrackingNumbers,
+  generateCustomerTrackingMessage,
+  copyToClipboard,
+} from '../utils/trackingUtils';
 import {
   Search,
   Filter,
@@ -27,6 +34,12 @@ import {
   FileSpreadsheet,
   Factory,
   Globe,
+  Truck,
+  ExternalLink,
+  Copy,
+  Check,
+  Plus,
+  Layers,
 } from 'lucide-react';
 
 interface OrderListProps {
@@ -36,6 +49,7 @@ interface OrderListProps {
   onDeleteOrder: (id: string) => void;
   onViewReceipt: (order: PurchaseOrder) => void;
   onViewShippingLabel: (order: PurchaseOrder) => void;
+  onQuickUpdateOrder?: (order: PurchaseOrder) => void;
 }
 
 export const OrderList: React.FC<OrderListProps> = ({
@@ -45,6 +59,7 @@ export const OrderList: React.FC<OrderListProps> = ({
   onDeleteOrder,
   onViewReceipt,
   onViewShippingLabel,
+  onQuickUpdateOrder,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState<SummaryPeriod | string>('all');
@@ -52,6 +67,41 @@ export const OrderList: React.FC<OrderListProps> = ({
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [stockSourceFilter, setStockSourceFilter] = useState<string>('all');
   const [orderToDelete, setOrderToDelete] = useState<PurchaseOrder | null>(null);
+  const [quickTrackingOrder, setQuickTrackingOrder] = useState<PurchaseOrder | null>(null);
+  const [copiedActionId, setCopiedActionId] = useState<string | null>(null);
+
+  const handleCopyTrackingLink = async (order: PurchaseOrder, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    const trackings = getAllTrackingNumbers(order);
+    if (trackings.length === 0) return;
+    
+    // If single tracking, copy its direct link. If multiple, copy links formatted for each box
+    let textToCopy = '';
+    if (trackings.length === 1) {
+      textToCopy = getTrackingUrl(order.courierName, trackings[0]);
+    } else {
+      textToCopy = trackings
+        .map((t, idx) => `กล่องที่ ${idx + 1} (${t}): ${getTrackingUrl(order.courierName, t)}`)
+        .join('\n');
+    }
+
+    if (!textToCopy) return;
+    const ok = await copyToClipboard(textToCopy);
+    if (ok) {
+      setCopiedActionId(`${order.id}-link`);
+      setTimeout(() => setCopiedActionId(null), 2000);
+    }
+  };
+
+  const handleCopyCustomerMsg = async (order: PurchaseOrder, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    const msg = generateCustomerTrackingMessage(order);
+    const ok = await copyToClipboard(msg);
+    if (ok) {
+      setCopiedActionId(`${order.id}-msg`);
+      setTimeout(() => setCopiedActionId(null), 2500);
+    }
+  };
 
   // Available months from data
   const availableMonths = getAvailableMonths(orders);
@@ -86,14 +136,17 @@ export const OrderList: React.FC<OrderListProps> = ({
   // Search Filter
   if (searchTerm.trim()) {
     const term = searchTerm.toLowerCase().trim();
-    filtered = filtered.filter(
-      (o) =>
+    filtered = filtered.filter((o) => {
+      const allTrks = getAllTrackingNumbers(o);
+      return (
         o.orderNumber.toLowerCase().includes(term) ||
         o.customer.name.toLowerCase().includes(term) ||
         o.customer.phone.toLowerCase().includes(term) ||
         o.customer.address.toLowerCase().includes(term) ||
+        allTrks.some((t) => t.toLowerCase().includes(term)) ||
         o.items.some((item) => item.productName.toLowerCase().includes(term))
-    );
+      );
+    });
   }
 
 
@@ -112,6 +165,9 @@ export const OrderList: React.FC<OrderListProps> = ({
       'ชื่อลูกค้า',
       'เบอร์โทรศัพท์',
       'ที่อยู่จัดส่ง',
+      'บริษัทขนส่ง',
+      'เลขพัสดุ (Tracking No.)',
+      'ลิงก์ติดตามพัสดุ',
       'ลำดับสินค้า',
       'รายการสินค้า',
       'ขนาดบรรจุ',
@@ -150,6 +206,11 @@ export const OrderList: React.FC<OrderListProps> = ({
 
       const stockSourceLabel = (o.stockSource || 'factory') === 'online' ? 'สต็อคออนไลน์' : 'สต็อคโรงงาน';
       const taxInvoiceLabel = o.taxInvoice?.isRequested ? 'ขอใบกำกับภาษี' : 'ไม่ระบุ';
+      const courierLabel = o.courierName || 'Flash Express';
+      const allTrks = getAllTrackingNumbers(o);
+      const trackingLabel = allTrks.length > 0 ? allTrks.join(' / ') : '-';
+      const trackingUrlLabel =
+        allTrks.length > 0 ? allTrks.map((t) => getTrackingUrl(courierLabel, t)).join(' ; ') : '-';
       const subtotal = o.subtotalAmount || (o.items ? o.items.reduce((s, it) => s + (it.totalPrice || 0), 0) : 0);
       const shippingVal = o.shippingFee || 0;
       const vatVal =
@@ -175,6 +236,9 @@ export const OrderList: React.FC<OrderListProps> = ({
             `"${(o.customer?.name || '').replace(/"/g, '""')}"`,
             `"${(o.customer?.phone || '').replace(/"/g, '""')}"`,
             `"${(o.customer?.address || '').replace(/"/g, '""')}"`,
+            `"${courierLabel}"`,
+            `"${trackingLabel}"`,
+            `"${trackingUrlLabel}"`,
             index + 1,
             `"${(item.productName || '').replace(/"/g, '""')}"`,
             `"${packLabel}"`,
@@ -202,6 +266,9 @@ export const OrderList: React.FC<OrderListProps> = ({
           `"${(o.customer?.name || '').replace(/"/g, '""')}"`,
           `"${(o.customer?.phone || '').replace(/"/g, '""')}"`,
           `"${(o.customer?.address || '').replace(/"/g, '""')}"`,
+          `"${courierLabel}"`,
+          `"${trackingLabel}"`,
+          `"${trackingUrlLabel}"`,
           '-',
           '-',
           '-',
@@ -592,10 +659,167 @@ export const OrderList: React.FC<OrderListProps> = ({
                 </p>
               )}
 
+              {/* PARCEL TRACKING STRIP */}
+              <div className="pt-2.5 mt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2.5 text-xs bg-slate-50/50 -mx-4 sm:-mx-5 -mb-4 sm:-mb-5 p-3 sm:px-5 rounded-b-2xl border-t">
+                {(() => {
+                  const allTrks = getAllTrackingNumbers(order);
+                  if (allTrks.length > 0) {
+                    return (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {allTrks.length === 1 ? (
+                          <div className="inline-flex items-center gap-1.5 bg-amber-50 border border-amber-300 text-amber-950 px-2.5 py-1 rounded-lg text-xs font-bold shadow-2xs">
+                            <Truck className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                            <span className="text-amber-800">{order.courierName || 'Flash Express'}:</span>
+                            <span className="font-mono text-slate-900 tracking-wider select-all">{allTrks[0]}</span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-950 border border-amber-300 px-2 py-0.5 rounded-lg text-[11px] font-black shadow-2xs">
+                              <Layers className="w-3 h-3 text-amber-700" />
+                              <span>{order.courierName || 'Flash Express'} ({allTrks.length} กล่อง):</span>
+                            </span>
+                            {allTrks.map((trk, idx) => (
+                              <a
+                                key={idx}
+                                href={getTrackingUrl(order.courierName, trk)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title={`กล่องที่ ${idx + 1}: คลิกเพื่อเช็คสถานะพัสดุ`}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 bg-white hover:bg-amber-50 text-slate-800 hover:text-blue-700 border border-slate-200 hover:border-amber-300 rounded-md font-mono text-[11px] font-bold transition-all shadow-2xs"
+                              >
+                                <span className="text-amber-800 font-sans font-bold">#{idx + 1}</span>
+                                <span>{trk}</span>
+                                <ExternalLink className="w-2.5 h-2.5 text-slate-400" />
+                              </a>
+                            ))}
+                          </div>
+                        )}
+
+                        {allTrks.length === 1 && (
+                          <a
+                            href={getTrackingUrl(order.courierName, allTrks[0])}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="เปิดดูสถานะพัสดุในเว็บขนส่ง"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            <span>เช็คพัสดุ</span>
+                          </a>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={(e) => handleCopyTrackingLink(order, e)}
+                          title={allTrks.length > 1 ? "คัดลอกลิงก์เช็คพัสดุของทุกล่อง" : "คัดลอกลิงก์เช็คพัสดุ"}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors shadow-2xs"
+                        >
+                          {copiedActionId === `${order.id}-link` ? (
+                            <>
+                              <Check className="w-3 h-3 text-emerald-600" />
+                              <span className="text-emerald-700 font-bold">คัดลอกแล้ว</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3 h-3 text-slate-500" />
+                              <span>{allTrks.length > 1 ? 'คัดลอกทุกลิงก์' : 'คัดลอกลิงก์'}</span>
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(e) => handleCopyCustomerMsg(order, e)}
+                          title="คัดลอกข้อความแจ้งลูกค้าพร้อมส่งทาง LINE (รองรับทุกกล่อง)"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-amber-900 bg-amber-100/80 hover:bg-amber-200 rounded-lg border border-amber-300 transition-colors shadow-2xs"
+                        >
+                          {copiedActionId === `${order.id}-msg` ? (
+                            <>
+                              <Check className="w-3 h-3 text-emerald-600" />
+                              <span className="text-emerald-800">คัดลอกข้อความ LINE แล้ว</span>
+                            </>
+                          ) : (
+                            <>
+                              <FileText className="w-3 h-3 text-amber-700" />
+                              <span>{allTrks.length > 1 ? `คัดลอกข้อความส่งลูกค้า (${allTrks.length} กล่อง)` : 'คัดลอกข้อความส่งลูกค้า'}</span>
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setQuickTrackingOrder(order)}
+                          title="แก้ไขเลขพัสดุ / บริษัทขนส่ง"
+                          className="p-1 text-slate-400 hover:text-slate-800 hover:bg-slate-200/70 rounded-md transition-colors"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-slate-400 flex items-center gap-1">
+                        <Truck className="w-3.5 h-3.5 text-slate-300" />
+                        <span>ยังไม่ได้ระบุเลขพัสดุ</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setQuickTrackingOrder(order)}
+                        className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 px-2.5 py-1 rounded-lg border border-dashed border-amber-300 transition-colors shadow-2xs"
+                      >
+                        <Plus className="w-3 h-3 text-amber-600" />
+                        <span>+ ใส่เลขพัสดุ (Flash Express)</span>
+                      </button>
+                    </div>
+                  );
+                })()}
+
+                {/* Delivery Status indicator on the right */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-[10px] text-slate-400">สถานะจัดส่ง:</span>
+                  <span
+                    className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${
+                      order.deliveryStatus === 'delivered'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : order.deliveryStatus === 'shipped'
+                        ? 'bg-blue-50 text-blue-700 border-blue-200'
+                        : order.deliveryStatus === 'cancelled'
+                        ? 'bg-rose-50 text-rose-700 border-rose-200'
+                        : 'bg-slate-100 text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    {order.deliveryStatus === 'delivered'
+                      ? 'จัดส่งสำเร็จ'
+                      : order.deliveryStatus === 'shipped'
+                      ? 'กำลังจัดส่ง'
+                      : order.deliveryStatus === 'cancelled'
+                      ? 'ยกเลิก'
+                      : 'รอดำเนินการ'}
+                  </span>
+                </div>
+              </div>
+
             </div>
           ))}
         </div>
       )}
+
+      {/* QUICK TRACKING MODAL */}
+      <QuickTrackingModal
+        isOpen={!!quickTrackingOrder}
+        order={quickTrackingOrder}
+        onClose={() => setQuickTrackingOrder(null)}
+        onSave={(updatedOrder) => {
+          if (onQuickUpdateOrder) {
+            onQuickUpdateOrder(updatedOrder);
+          } else {
+            onEditOrder(updatedOrder);
+          }
+          setQuickTrackingOrder(null);
+        }}
+      />
 
       {/* DELETE CONFIRMATION MODAL */}
       <ConfirmDeleteModal

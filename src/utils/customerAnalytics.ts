@@ -1,5 +1,6 @@
 import { PurchaseOrder, CustomerStat, CustomerPeriodSummary } from '../types';
 import { THAI_FULL_MONTHS, THAI_SHORT_MONTHS, formatThaiShortDate, formatCurrency, formatWeight } from './formatters';
+import { getTrackingUrl } from './trackingUtils';
 
 /**
  * Normalizes customer key to link repeat purchases by phone number or clean name
@@ -751,7 +752,7 @@ export function exportSingleCustomerSummaryToCSV(customer: CustomerStat, monthKe
     `"--- ประวัติใบสั่งซื้อแต่ละบิลใน ${monthData.monthLabel} (${monthData.orders.length} บิล) ---"`
   );
   lines.push(
-    'ลำดับบิล,รหัสคำสั่งซื้อ (PO),วันที่สั่งซื้อ,สถานะจัดส่ง,สถานะชำระเงิน,รายการสินค้าในบิล,น้ำหนักบิล (กก.),ยอดเงินบิล (บาท),ค่าจัดส่ง (บาท),VAT (บาท),จำนวนกล่อง,หมายเหตุ'
+    'ลำดับบิล,รหัสคำสั่งซื้อ (PO),วันที่สั่งซื้อ,บริษัทขนส่ง,เลขพัสดุ (Tracking No.),ลิงก์ติดตามพัสดุ,สถานะจัดส่ง,สถานะชำระเงิน,รายการสินค้าในบิล,น้ำหนักบิล (กก.),ยอดเงินบิล (บาท),ค่าจัดส่ง (บาท),VAT (บาท),จำนวนกล่อง,หมายเหตุ'
   );
 
   monthData.orders.forEach((ord, idx) => {
@@ -766,7 +767,7 @@ export function exportSingleCustomerSummaryToCSV(customer: CustomerStat, monthKe
       ord.deliveryStatus === 'delivered'
         ? 'จัดส่งสำเร็จ'
         : ord.deliveryStatus === 'shipped'
-        ? 'จัดส่งแล้ว'
+        ? 'กำลังจัดส่ง'
         : ord.deliveryStatus === 'cancelled'
         ? 'ยกเลิก'
         : 'รอดำเนินการ';
@@ -778,11 +779,18 @@ export function exportSingleCustomerSummaryToCSV(customer: CustomerStat, monthKe
         ? 'เก็บเงินปลายทาง'
         : 'รอชำระ';
 
+    const courierText = ord.courierName || 'Flash Express';
+    const trackingText = ord.trackingNumber || '-';
+    const trackingUrlText = getTrackingUrl(courierText, ord.trackingNumber) || '-';
+
     lines.push(
       [
         idx + 1,
         `"${ord.orderNumber || ord.id || '-'}"`,
         `"${formatThaiShortDate(ord.createdAt)}"`,
+        `"${courierText}"`,
+        `"${trackingText}"`,
+        `"${trackingUrlText}"`,
         `"${deliveryStatusText}"`,
         `"${paymentStatusText}"`,
         `"${itemsText.replace(/"/g, '""')}"`,

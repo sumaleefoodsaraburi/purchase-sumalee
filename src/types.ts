@@ -39,6 +39,9 @@ export interface PurchaseOrder {
   stockSource?: StockLocation; // 'factory' (โรงงาน) | 'online' (ออนไลน์) - default 'factory'
   shippingFee?: number; // ค่าจัดส่ง (บาท)
   boxCount?: number;    // จำนวนกล่อง (กล่อง)
+  courierName?: string; // บริษัทขนส่ง e.g. 'Flash Express' (default)
+  trackingNumber?: string; // เลขพัสดุสำหรับติดตามสถานะ (รวมหรือกล่องแรก)
+  trackingNumbers?: string[]; // รายการเลขพัสดุแยกแต่ละกล่อง กรณีส่งหลายกล่อง e.g. ['TH01...', 'TH02...']
   note?: string;
   taxInvoice?: TaxInvoiceInfo;
   hasVat?: boolean;      // คิด VAT 7%

@@ -327,6 +327,7 @@ export default function App() {
             onDeleteOrder={handleDeleteOrder}
             onViewReceipt={handleViewReceipt}
             onViewShippingLabel={handleViewShippingLabel}
+            onQuickUpdateOrder={handleSaveOrder}
           />
         )}
 

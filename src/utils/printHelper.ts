@@ -1,5 +1,6 @@
 import { PurchaseOrder } from '../types';
 import { formatCurrency, formatWeight, formatThaiDateTime } from './formatters';
+import { getAllTrackingNumbers } from './trackingUtils';
 
 /**
  * Generate full HTML document string for Purchase Order Receipt
@@ -272,6 +273,11 @@ export function getReceiptHtml(order: PurchaseOrder): string {
             <div class="cust-label">สถานะการสั่งซื้อ</div>
             <div class="cust-detail">สถานะการชำระเงิน: <strong>${paymentStatusThai}</strong></div>
             <div class="cust-detail">สถานะการจัดส่ง: <strong>${deliveryStatusThai}</strong></div>
+            ${
+              order.trackingNumber
+                ? `<div class="cust-detail" style="margin-top: 4px; color: #b45309; font-weight: 700;">🚚 ขนส่ง: ${order.courierName || 'Flash Express'} | เลขพัสดุ: <span style="font-family: monospace; font-size: 13px; color: #0f172a;">${order.trackingNumber}</span></div>`
+                : ''
+            }
             ${
               order.note
                 ? `<div class="cust-detail" style="margin-top: 6px; background: #fef3c7; color: #92400e; padding: 4px 8px; border-radius: 4px; font-size: 11px;"><strong>หมายเหตุ:</strong> ${order.note}</div>`
@@ -551,6 +557,35 @@ export function getShippingLabelHtml(order: PurchaseOrder): string {
           <div class="recipient-phone">📞 โทร: ${order.customer.phone}</div>
           <div class="recipient-addr">${order.customer.address}</div>
         </div>
+
+        ${(() => {
+          const trackings = getAllTrackingNumbers(order);
+          if (trackings.length === 0) return '';
+          if (trackings.length === 1) {
+            return `<div style="margin-top: 12px; background: #fffbeb; border: 2px solid #f59e0b; border-radius: 10px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: 800; color: #92400e; font-size: 14px;">🚚 ขนส่ง: ${order.courierName || 'Flash Express'}</span>
+                <span style="font-weight: 900; font-family: monospace; font-size: 16px; color: #0f172a; letter-spacing: 1px;">เลขพัสดุ: ${trackings[0]}</span>
+              </div>`;
+          }
+          return `<div style="margin-top: 12px; background: #fffbeb; border: 2px solid #f59e0b; border-radius: 10px; padding: 10px 14px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #fcd34d; padding-bottom: 6px; margin-bottom: 8px;">
+                <span style="font-weight: 800; color: #92400e; font-size: 14px;">🚚 ขนส่ง: ${order.courierName || 'Flash Express'}</span>
+                <span style="font-weight: 800; font-size: 13px; color: #78350f; background: #fef3c7; border: 1px solid #fde68a; padding: 2px 8px; border-radius: 6px;">จัดส่งแยก ${trackings.length} กล่อง</span>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                ${trackings
+                  .map(
+                    (t, i) => `
+                  <div style="display: flex; justify-content: space-between; align-items: center; background: #ffffff; padding: 6px 10px; border-radius: 6px; border: 1px solid #fed7aa;">
+                    <span style="font-weight: 800; color: #7c2d12; font-size: 13px;">📦 กล่องที่ ${i + 1}:</span>
+                    <span style="font-weight: 900; font-family: monospace; font-size: 15px; color: #0f172a; letter-spacing: 1px;">${t}</span>
+                  </div>
+                `
+                  )
+                  .join('')}
+              </div>
+            </div>`;
+        })()}
 
         ${
           order.note

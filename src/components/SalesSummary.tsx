@@ -37,6 +37,7 @@ import {
   Users,
   Repeat,
   UserPlus,
+  Truck,
 } from 'lucide-react';
 import { getAllCustomerStats } from '../utils/customerAnalytics';
 
@@ -550,6 +551,12 @@ export const SalesSummary: React.FC<SalesSummaryProps> = ({
                       <span className="font-mono font-bold text-xs text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">{ord.orderNumber}</span>
                       <span className="text-xs text-slate-900 font-bold">{ord.customer.name}</span>
                       <span className="text-[11px] text-slate-400">({ord.customer.phone})</span>
+                      {ord.trackingNumber && (
+                        <span className="text-[10px] font-mono font-bold bg-amber-50 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded flex items-center gap-1">
+                          <Truck className="w-2.5 h-2.5 text-amber-600" />
+                          <span>{ord.courierName || 'Flash'}: {ord.trackingNumber}</span>
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-slate-500 mt-0.5 truncate">
                       {ord.items.map(i => `${i.productName} (${i.weightKg}กก.)`).join(', ')}

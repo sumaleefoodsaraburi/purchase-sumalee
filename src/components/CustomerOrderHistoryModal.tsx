@@ -24,7 +24,10 @@ import {
   FileSpreadsheet,
   Download,
   Filter,
+  Truck,
+  ExternalLink,
 } from 'lucide-react';
+import { getTrackingUrl } from '../utils/trackingUtils';
 
 interface CustomerOrderHistoryModalProps {
   customer: CustomerStat | null;
@@ -363,6 +366,19 @@ export const CustomerOrderHistoryModal: React.FC<CustomerOrderHistoryModalProps>
                             <Calendar className="w-3 h-3 text-slate-400" />
                             {formatThaiDateTime(ord.createdAt)}
                           </span>
+                          {ord.trackingNumber && (
+                            <a
+                              href={getTrackingUrl(ord.courierName, ord.trackingNumber)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[11px] font-mono font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-colors"
+                              title="เปิดลิงก์เช็คสถานะพัสดุ"
+                            >
+                              <Truck className="w-3 h-3 text-amber-600" />
+                              <span>{ord.courierName || 'Flash'}: {ord.trackingNumber}</span>
+                              <ExternalLink className="w-2.5 h-2.5 text-blue-600" />
+                            </a>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-2">

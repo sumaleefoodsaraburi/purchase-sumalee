@@ -2,7 +2,8 @@ import React from 'react';
 import { PurchaseOrder } from '../types';
 import { formatCurrency, formatWeight, formatThaiDateTime } from '../utils/formatters';
 import { triggerPrintHtml, openPrintWindow, getShippingLabelHtml } from '../utils/printHelper';
-import { Printer, ExternalLink, X, MapPin, Phone, Package, Building2, AlertCircle } from 'lucide-react';
+import { getAllTrackingNumbers } from '../utils/trackingUtils';
+import { Printer, ExternalLink, X, MapPin, Phone, Package, Building2, AlertCircle, Truck, Layers } from 'lucide-react';
 
 interface ShippingLabelModalProps {
   order: PurchaseOrder | null;
@@ -140,6 +141,47 @@ export const ShippingLabelModal: React.FC<ShippingLabelModalProps> = ({ order, o
                 </p>
               </div>
             </div>
+
+            {/* TRACKING INFO IF PRESENT (รองรับหลายกล่อง) */}
+            {(() => {
+              const trackings = getAllTrackingNumbers(order);
+              if (trackings.length === 0) return null;
+              if (trackings.length === 1) {
+                return (
+                  <div className="border-2 border-amber-400 bg-amber-50 rounded-xl p-3 text-xs sm:text-sm text-amber-950 font-bold flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Truck className="w-5 h-5 text-amber-600 shrink-0" />
+                      <span>ขนส่ง: {order.courierName || 'Flash Express'}</span>
+                    </div>
+                    <div className="font-mono text-base font-black text-slate-900">
+                      เลขพัสดุ: {trackings[0]}
+                    </div>
+                  </div>
+                );
+              }
+              return (
+                <div className="border-2 border-amber-400 bg-amber-50 rounded-xl p-3 text-xs sm:text-sm text-amber-950 font-bold space-y-2">
+                  <div className="flex items-center justify-between border-b border-amber-200 pb-2">
+                    <div className="flex items-center gap-2">
+                      <Truck className="w-5 h-5 text-amber-600 shrink-0" />
+                      <span>ขนส่ง: {order.courierName || 'Flash Express'}</span>
+                    </div>
+                    <span className="text-xs bg-amber-200/80 text-amber-950 px-2 py-0.5 rounded-md font-extrabold flex items-center gap-1">
+                      <Layers className="w-3.5 h-3.5" />
+                      <span>จัดส่งแยก {trackings.length} กล่อง</span>
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
+                    {trackings.map((trk, i) => (
+                      <div key={i} className="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-lg border border-amber-200">
+                        <span className="text-xs text-amber-900 font-bold">กล่องที่ {i + 1}:</span>
+                        <span className="font-mono text-sm font-black text-slate-900">{trk}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* REMARK / NOTE IF PRESENT */}
             {order.note && (

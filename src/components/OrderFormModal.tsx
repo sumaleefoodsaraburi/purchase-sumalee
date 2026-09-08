@@ -4,6 +4,14 @@ import { POPULAR_PRODUCTS_PRESETS } from '../data/sampleOrders';
 import { formatCurrency, formatWeight, generatePoNumber } from '../utils/formatters';
 import { normalizeProductName, getRealtimeAvailableStock, isStockTrackedProduct } from '../utils/stockUtils';
 import {
+  COURIER_OPTIONS,
+  getTrackingUrl,
+  getAllTrackingNumbers,
+  generateCustomerTrackingMessage,
+  copyToClipboard,
+  parseMultiTrackingInput,
+} from '../utils/trackingUtils';
+import {
   X,
   Plus,
   Trash2,
@@ -29,6 +37,10 @@ import {
   PackageCheck,
   AlertTriangle,
   Layers,
+  ExternalLink,
+  Copy,
+  Check,
+  ClipboardList,
 } from 'lucide-react';
 
 interface OrderFormModalProps {
@@ -64,9 +76,19 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
   const [stockSource, setStockSource] = useState<StockLocation>('factory');
   const [note, setNote] = useState('');
 
+  // Shipping & Tracking State (Flash Express is primary)
+  const [courierName, setCourierName] = useState<string>('Flash Express');
+  const [trackingNumber, setTrackingNumber] = useState<string>('');
+  const [trackingList, setTrackingList] = useState<string[]>(['']);
+  const [showBatchPaste, setShowBatchPaste] = useState(false);
+  const [batchPasteText, setBatchPasteText] = useState('');
+  const [copiedTrackingIndex, setCopiedTrackingIndex] = useState<number | null>(null);
+  const [copiedTrackingLink, setCopiedTrackingLink] = useState(false);
+  const [copiedTrackingMsg, setCopiedTrackingMsg] = useState(false);
+
   // Shipping Fee & Box Count State
   const [shippingFee, setShippingFee] = useState<number | ''>('');
-  const [boxCount, setBoxCount] = useState<number | ''>('');
+  const [boxCount, setBoxCount] = useState<number | ''>(1);
   const [hasVat, setHasVat] = useState(false);
 
   // Tax Invoice State
@@ -117,8 +139,28 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
       setStockSource(editingOrder.stockSource || 'factory');
       setNote(editingOrder.note || '');
 
+      setCourierName(editingOrder.courierName || 'Flash Express');
+      setTrackingNumber(editingOrder.trackingNumber || '');
+      setCopiedTrackingLink(false);
+      setCopiedTrackingMsg(false);
+      setCopiedTrackingIndex(null);
+      setShowBatchPaste(false);
+      setBatchPasteText('');
+
+      const existingTrackings = getAllTrackingNumbers(editingOrder);
+      const boxes = editingOrder.boxCount || (existingTrackings.length > 0 ? existingTrackings.length : 1);
+      setBoxCount(boxes);
+      if (existingTrackings.length > 0) {
+        const initial = [...existingTrackings];
+        while (initial.length < boxes) {
+          initial.push('');
+        }
+        setTrackingList(initial);
+      } else {
+        setTrackingList(Array(Math.max(1, typeof boxes === 'number' ? boxes : 1)).fill(''));
+      }
+
       setShippingFee(editingOrder.shippingFee !== undefined ? editingOrder.shippingFee : '');
-      setBoxCount(editingOrder.boxCount !== undefined ? editingOrder.boxCount : '');
       setHasVat(
         editingOrder.hasVat !== undefined
           ? editingOrder.hasVat
@@ -163,9 +205,17 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
     setPaymentStatus('paid');
     setDeliveryStatus('pending');
     setStockSource('factory');
+    setCourierName('Flash Express');
+    setTrackingNumber('');
+    setTrackingList(['']);
+    setShowBatchPaste(false);
+    setBatchPasteText('');
+    setCopiedTrackingIndex(null);
+    setCopiedTrackingLink(false);
+    setCopiedTrackingMsg(false);
     setNote('');
     setShippingFee('');
-    setBoxCount('');
+    setBoxCount(1);
     setHasVat(false);
     setRequestTaxInvoice(false);
     setTaxCompanyName('');
@@ -183,6 +233,56 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
       },
     ]);
     setFormError('');
+  };
+
+  const handleUpdateBoxCount = (count: number | '') => {
+    setBoxCount(count);
+    const num = typeof count === 'number' ? Math.max(1, Math.min(20, count)) : 1;
+    setTrackingList((prev) => {
+      const copy = [...prev];
+      if (num > copy.length) {
+        while (copy.length < num) copy.push('');
+      } else if (num < copy.length) {
+        return copy.slice(0, num);
+      }
+      return copy;
+    });
+  };
+
+  const handleUpdateTrackingItem = (index: number, val: string) => {
+    setTrackingList((prev) => {
+      const copy = [...prev];
+      copy[index] = val;
+      return copy;
+    });
+    if (val.trim() && deliveryStatus === 'pending') {
+      setDeliveryStatus('shipped');
+    }
+  };
+
+  const handleAddBox = () => {
+    const current = typeof boxCount === 'number' ? boxCount : 1;
+    handleUpdateBoxCount(current + 1);
+  };
+
+  const handleRemoveBox = (index: number) => {
+    const current = typeof boxCount === 'number' ? boxCount : 1;
+    if (current <= 1) return;
+    setTrackingList((prev) => prev.filter((_, i) => i !== index));
+    setBoxCount(Math.max(1, current - 1));
+  };
+
+  const handleApplyBatchPaste = () => {
+    const parsed = parseMultiTrackingInput(batchPasteText);
+    if (parsed.length > 0) {
+      setBoxCount(parsed.length);
+      setTrackingList(parsed);
+      setShowBatchPaste(false);
+      setBatchPasteText('');
+      if (deliveryStatus === 'pending') {
+        setDeliveryStatus('shipped');
+      }
+    }
   };
 
   if (!isOpen) return null;
@@ -314,6 +414,9 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
 
     const orderNumber = calculatedPoNumber;
 
+    const cleanedTrackings = trackingList.map((t) => t.trim()).filter((t) => t.length > 0);
+    const finalBoxCount = Math.max(parsedBoxCount || 1, cleanedTrackings.length || 1);
+
     const savedPO: PurchaseOrder = {
       id: editingOrder ? editingOrder.id : `po-${Date.now()}`,
       orderNumber,
@@ -337,10 +440,13 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
       vatAmount: hasVat ? vatAmount : undefined,
       totalAmount: grandTotalAmount,
       shippingFee: parsedShippingFee > 0 ? parsedShippingFee : undefined,
-      boxCount: parsedBoxCount,
+      boxCount: finalBoxCount,
       paymentStatus,
       deliveryStatus,
       stockSource,
+      courierName: courierName.trim() || 'Flash Express',
+      trackingNumber: cleanedTrackings.join(', ') || undefined,
+      trackingNumbers: cleanedTrackings.length > 0 ? cleanedTrackings : undefined,
       note: note.trim(),
       taxInvoice: {
         isRequested: requestTaxInvoice,
@@ -873,7 +979,7 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
                   min="1"
                   placeholder="เช่น 1, 2, 3..."
                   value={boxCount}
-                  onChange={(e) => setBoxCount(e.target.value ? Number(e.target.value) : '')}
+                  onChange={(e) => handleUpdateBoxCount(e.target.value ? Number(e.target.value) : '')}
                   className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none"
                 />
               </div>
@@ -1211,6 +1317,279 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
                   <option value="delivered">จัดส่งสำเร็จ (Delivered)</option>
                   <option value="cancelled">ยกเลิก (Cancelled)</option>
                 </select>
+              </div>
+
+              {/* Courier & Tracking Number (ขนส่ง & เลขพัสดุ - รองรับแยกหลายกล่อง) */}
+              <div className="sm:col-span-2 bg-amber-50/70 border border-amber-200/80 rounded-xl p-3.5 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 text-amber-900 font-bold text-xs">
+                    <Truck className="w-4 h-4 text-amber-600" />
+                    <span>ข้อมูลขนส่ง & เลขพัสดุ (Parcel Tracking)</span>
+                    <span className="bg-amber-200 text-amber-900 text-[10px] font-extrabold px-1.5 py-0.5 rounded">
+                      ⚡ ขนส่งหลัก: Flash Express
+                    </span>
+                  </div>
+                  {trackingList.some((t) => t.trim().length > 0) && deliveryStatus === 'pending' && (
+                    <button
+                      type="button"
+                      onClick={() => setDeliveryStatus('shipped')}
+                      className="text-[11px] font-semibold text-emerald-700 bg-emerald-100/80 hover:bg-emerald-200 px-2 py-0.5 rounded-lg border border-emerald-300 transition-colors"
+                    >
+                      ✓ ปรับสถานะเป็น "กำลังจัดส่ง"
+                    </button>
+                  )}
+                </div>
+
+                {/* Courier Selection */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    บริษัทขนส่ง (Carrier)
+                  </label>
+                  <select
+                    value={courierName}
+                    onChange={(e) => setCourierName(e.target.value)}
+                    className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500 outline-none"
+                  >
+                    {COURIER_OPTIONS.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Box Count Selector & Quick Batch Paste */}
+                <div className="bg-white p-3 rounded-xl border border-amber-200 space-y-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                      <Layers className="w-4 h-4 text-amber-600" />
+                      <span>จำนวนกล่องในออร์เดอร์นี้:</span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      {[1, 2, 3, 4].map((num) => (
+                        <button
+                          key={num}
+                          type="button"
+                          onClick={() => handleUpdateBoxCount(num)}
+                          className={`w-7 h-7 text-xs font-bold rounded-lg border transition-all ${
+                            boxCount === num
+                              ? 'bg-amber-500 text-slate-950 border-amber-600 shadow-xs font-black'
+                              : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          {num}
+                        </button>
+                      ))}
+                      <div className="flex items-center gap-1 ml-1 pl-1.5 border-l border-slate-200">
+                        <input
+                          type="number"
+                          min="1"
+                          max="20"
+                          value={boxCount}
+                          onChange={(e) => handleUpdateBoxCount(e.target.value ? Number(e.target.value) : '')}
+                          className="w-12 px-1.5 py-1 text-center bg-slate-50 border border-slate-300 rounded-lg text-xs font-black text-slate-900 outline-none focus:ring-2 focus:ring-amber-500"
+                        />
+                        <span className="text-xs text-slate-600 font-bold">กล่อง</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Batch Paste Toggle */}
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[11px]">
+                    <span className="text-amber-800 font-medium">
+                      {(typeof boxCount === 'number' && boxCount > 1) || trackingList.length > 1
+                        ? `📦 มี ${trackingList.length} กล่องพัสดุ (สามารถระบุเลขพัสดุแยกกล่องได้)`
+                        : '📦 ส่งพัสดุ 1 กล่อง'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowBatchPaste(!showBatchPaste)}
+                      className="text-amber-800 hover:text-amber-950 font-bold flex items-center gap-1 hover:underline"
+                    >
+                      <ClipboardList className="w-3.5 h-3.5" />
+                      <span>{showBatchPaste ? 'ปิดช่องวางหลายกล่อง' : 'วางเลขพัสดุหลายรายการพร้อมกัน'}</span>
+                    </button>
+                  </div>
+
+                  {/* Batch Paste Textarea */}
+                  {showBatchPaste && (
+                    <div className="p-2.5 bg-amber-50/50 rounded-lg border border-amber-300 space-y-2 animate-in fade-in duration-100">
+                      <label className="block text-[11px] font-bold text-slate-700">
+                        วางเลขพัสดุหลายรายการ (1 บรรทัดต่อ 1 กล่อง หรือคั่นด้วยจุลภาค):
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={batchPasteText}
+                        onChange={(e) => setBatchPasteText(e.target.value)}
+                        placeholder={"TH0123456789A\nTH0123456789B\nTH0123456789C"}
+                        className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowBatchPaste(false)}
+                          className="px-2.5 py-1 text-xs text-slate-500 hover:text-slate-800"
+                        >
+                          ยกเลิก
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleApplyBatchPaste}
+                          className="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-lg shadow-xs"
+                        >
+                          นำเข้าแยกตามกล่อง
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Individual Tracking Inputs Per Box */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-slate-800">
+                      เลขพัสดุแยกตามกล่อง ({courierName})
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleAddBox}
+                      className="text-[11px] font-bold text-amber-800 hover:text-amber-950 flex items-center gap-1 hover:underline"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>+ เพิ่มอีก 1 กล่อง</span>
+                    </button>
+                  </div>
+
+                  {trackingList.map((trk, idx) => {
+                    const clean = trk.trim();
+                    const url = getTrackingUrl(courierName, clean);
+
+                    return (
+                      <div
+                        key={idx}
+                        className="p-2.5 bg-white border border-slate-200 rounded-xl space-y-1.5 focus-within:border-amber-400 transition-colors shadow-2xs"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+                            <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-black flex items-center justify-center">
+                              {idx + 1}
+                            </span>
+                            <span>
+                              กล่องที่ {idx + 1}{' '}
+                              {trackingList.length > 1 ? `(จาก ${trackingList.length} กล่อง)` : ''}
+                            </span>
+                          </span>
+
+                          {trackingList.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveBox(idx)}
+                              title="ลบกล่องนี้"
+                              className="p-1 text-slate-400 hover:text-rose-600 rounded-md transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="relative">
+                          <input
+                            type="text"
+                            placeholder={idx === 0 ? "เช่น TH0123456789A (Flash Express)" : `เช่น TH0123456789${String.fromCharCode(66 + idx)}`}
+                            value={trk}
+                            onChange={(e) => handleUpdateTrackingItem(idx, e.target.value)}
+                            className="w-full pl-3 pr-8 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none uppercase placeholder:font-normal placeholder:normal-case"
+                          />
+                          <Truck className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
+
+                        {clean && (
+                          <div className="flex items-center justify-between pt-0.5 text-[11px]">
+                            <a
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline inline-flex items-center gap-1 truncate max-w-[240px]"
+                            >
+                              <ExternalLink className="w-3 h-3 text-blue-600 shrink-0" />
+                              <span className="truncate">ลิงก์เช็คสถานะกล่องที่ {idx + 1}</span>
+                            </a>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const ok = await copyToClipboard(url);
+                                if (ok) {
+                                  setCopiedTrackingIndex(idx);
+                                  setTimeout(() => setCopiedTrackingIndex(null), 2000);
+                                }
+                              }}
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-colors ${
+                                copiedTrackingIndex === idx
+                                  ? 'bg-emerald-600 text-white border-emerald-600'
+                                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'
+                              }`}
+                            >
+                              {copiedTrackingIndex === idx ? 'คัดลอกแล้ว' : 'คัดลอกลิงก์'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Customer Notification Message Ready-to-Copy Card */}
+                {trackingList.some((t) => t.trim().length > 0) && (
+                  <div className="bg-white border border-amber-300/80 rounded-xl p-3 space-y-2 text-xs shadow-2xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="truncate font-mono text-[11px] text-slate-700">
+                        <span className="font-bold text-amber-800 mr-1">💬 แจ้งเลขพัสดุให้ลูกค้า:</span>
+                        <span className="text-slate-600">
+                          {trackingList.filter((t) => t.trim().length > 0).length} กล่อง ({courierName})
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const cleaned = trackingList.map((t) => t.trim()).filter(Boolean);
+                            const dummyOrder: PurchaseOrder = {
+                              id: 'temp',
+                              orderNumber: calculatedPoNumber,
+                              createdAt: orderDate,
+                              customer: { name: customerName.trim() || 'คุณลูกค้า', phone: customerPhone.trim(), address: customerAddress },
+                              items: [],
+                              totalWeightKg: grandTotalWeight,
+                              totalAmount: grandTotalAmount,
+                              paymentStatus,
+                              deliveryStatus,
+                              courierName,
+                              trackingNumber: cleaned.join(', '),
+                              trackingNumbers: cleaned,
+                              boxCount: Math.max(Number(boxCount) || 1, cleaned.length),
+                            };
+                            const msg = generateCustomerTrackingMessage(dummyOrder);
+                            const ok = await copyToClipboard(msg);
+                            if (ok) {
+                              setCopiedTrackingMsg(true);
+                              setTimeout(() => setCopiedTrackingMsg(false), 2500);
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition-colors ${
+                            copiedTrackingMsg
+                              ? 'bg-emerald-600 text-white border-emerald-600'
+                              : 'bg-amber-100 hover:bg-amber-200 text-amber-950 border-amber-300'
+                          }`}
+                        >
+                          {copiedTrackingMsg ? <Check className="w-3.5 h-3.5 text-white" /> : <FileText className="w-3.5 h-3.5 text-amber-700" />}
+                          <span>{copiedTrackingMsg ? 'คัดลอกข้อความ LINE แล้ว' : 'คัดลอกข้อความแจ้งลูกค้า (ทุกล่อง)'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="sm:col-span-2">
