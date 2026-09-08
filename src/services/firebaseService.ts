@@ -120,21 +120,49 @@ export async function seedInitialOrdersIfEmpty(defaultOrders: PurchaseOrder[]): 
 }
 
 /**
- * Seed initial sample stock entries into Firestore if collection is empty
+ * Sync all stock entries to Firestore via batch write
+ */
+export async function syncAllStockEntriesToFirestore(stockList: StockEntry[]): Promise<void> {
+  try {
+    const colRef = collection(db, STOCK_COLLECTION_NAME);
+    const snapshot = await getDocs(colRef);
+    const deleteBatch = writeBatch(db);
+    snapshot.forEach((d) => deleteBatch.delete(d.ref));
+    await deleteBatch.commit();
+
+    const batch = writeBatch(db);
+    for (const item of stockList) {
+      const docRef = doc(db, STOCK_COLLECTION_NAME, item.id);
+      const cleanItem = JSON.parse(JSON.stringify(item));
+      batch.set(docRef, cleanItem);
+    }
+    await batch.commit();
+    console.log(`Synced ${stockList.length} stock entries to Firestore via batch write.`);
+  } catch (err) {
+    console.error('Error syncing batch stock entries to Firestore:', err);
+  }
+}
+
+export const FACTORY_BASELINE_ENTRY_ID = 'stk-baseline-factory-20260908';
+
+/**
+ * Seed initial sample stock entries into Firestore if collection is empty or lacks factory baseline
  */
 export async function seedInitialStockEntriesIfEmpty(defaultStock: StockEntry[]): Promise<void> {
   try {
     const colRef = collection(db, STOCK_COLLECTION_NAME);
     const snapshot = await getDocs(colRef);
-    if (snapshot.empty && defaultStock.length > 0) {
+    const hasBaseline = snapshot.docs.some((d) => d.id === FACTORY_BASELINE_ENTRY_ID);
+
+    if (snapshot.empty) {
       console.log(`Seeding initial stock entries to Firestore (${defaultStock.length} entries)...`);
-      const batch = writeBatch(db);
-      for (const item of defaultStock) {
-        const docRef = doc(db, STOCK_COLLECTION_NAME, item.id);
-        const cleanItem = JSON.parse(JSON.stringify(item));
-        batch.set(docRef, cleanItem);
+      await syncAllStockEntriesToFirestore(defaultStock);
+    } else if (!hasBaseline) {
+      console.log(`Adding new factory baseline entry to Firestore (${FACTORY_BASELINE_ENTRY_ID})...`);
+      const baselineFactory = defaultStock.find((e) => e.id === FACTORY_BASELINE_ENTRY_ID);
+      if (baselineFactory) {
+        await saveStockEntryToFirestore(baselineFactory);
       }
-      await batch.commit();
     }
   } catch (err) {
     console.error('Error seeding initial stock entries:', err);

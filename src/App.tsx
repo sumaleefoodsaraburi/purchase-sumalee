@@ -14,7 +14,8 @@ import {
 } from './services/firebaseService';
 import {
   loadStockEntriesFromLocalStorage,
-  saveStockEntriesToLocalStorage
+  saveStockEntriesToLocalStorage,
+  getSampleStockEntries,
 } from './utils/stockUtils';
 import { Header } from './components/Header';
 import { SalesSummary } from './components/SalesSummary';

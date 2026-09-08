@@ -1,7 +1,7 @@
 import { StockEntry, PurchaseOrder, DailyStockSummary, ProductionShift, StockLocation } from '../types';
 import { THAI_FULL_MONTHS, THAI_SHORT_MONTHS } from './formatters';
 
-const STORAGE_KEY = 'sumalee_stock_entries_v2';
+const STORAGE_KEY = 'sumalee_stock_entries_v4';
 
 export const FACTORY_STOCK_PRESET_NAMES = [
   'หอมเจียวยางแดง 5กก (รหัส OF01)',
@@ -15,7 +15,43 @@ export const FACTORY_STOCK_PRESET_NAMES = [
   'กระเทียมเจียวA สูตร100 (รหัส FG06)',
 ];
 
-export const STOCK_CUTOFF_DATE = '2026-08-01';
+export const FACTORY_STOCK_CUTOFF_DATE = '2026-09-08';
+export const ONLINE_STOCK_CUTOFF_DATE = '2026-08-02';
+export const STOCK_CUTOFF_DATE = '2026-09-08';
+
+/**
+ * Get current date key in Bangkok timezone (YYYY-MM-DD)
+ */
+export function getTodayDateKey(): string {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Bangkok',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+  } catch {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  }
+}
+
+/**
+ * Check if a stock entry is a baseline / opening balance entry
+ */
+export function isBaselineStockEntry(entry: StockEntry): boolean {
+  if (!entry) return false;
+  return (
+    entry.id.startsWith('stk-baseline') ||
+    (typeof entry.note === 'string' &&
+      (entry.note.includes('สต็อคเริ่มต้น') ||
+        entry.note.includes('สต็อคตั้งต้น') ||
+        entry.note.includes('ยอดยกมาเริ่มต้น') ||
+        entry.note.includes('พร้อมขายตอนนี้'))) ||
+    entry.shiftLabel?.includes('ยอดยกมา') ||
+    false
+  );
+}
 
 /**
  * Normalize product names to match the factory/online stock products.
@@ -50,21 +86,24 @@ export function normalizeProductName(name: string): string | null {
   if (
     t.includes('OF02.02') ||
     ((t.includes('100กรัม') || t.includes('100 กรัม') || lower.includes('100g') || t.includes('100 ก.')) &&
-      (t.includes('หอม') || t.includes('ยางเขียว')))
+      (t.includes('หอม') || t.includes('ยางเขียว') || t.includes('ยางแขียว')))
   ) {
     return 'หอมเจียวยางเขียว 100กรัม (รหัส OF02.02)';
   }
   if (
     t.includes('OF02.01') ||
     ((t.includes('500กรัม') || t.includes('500 กรัม') || lower.includes('500g') || t.includes('500 ก.')) &&
-      (t.includes('หอม') || t.includes('ยางเขียว')))
+      (t.includes('หอม') || t.includes('ยางเขียว') || t.includes('ยางแขียว')))
   ) {
     return 'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)';
   }
-  if (t.includes('OF02') || t.includes('ยางเขียว')) return 'หอมเจียวยางเขียว 5กก (รหัส OF02)';
+  if (t.includes('OF02') || t.includes('ยางเขียว') || t.includes('ยางแขียว')) return 'หอมเจียวยางเขียว 5กก (รหัส OF02)';
   if (
     t.includes('OF03') ||
     t.includes('แป้งหนา') ||
+    t.includes('หอมหนา') ||
+    t.includes('เจียวหนา') ||
+    t.includes('หอมเจียวหนา') ||
     t.includes('หอมเจียวC') ||
     t.includes('หอมเจียว C') ||
     lower.includes('หอมเจียว c')
@@ -76,7 +115,7 @@ export function normalizeProductName(name: string): string | null {
   if (t.includes('หอมเจียว') || t.includes('หอมทอด') || t.includes('หอมแผ่นเจียว')) {
     if (t.includes('100')) return 'หอมเจียวยางเขียว 100กรัม (รหัส OF02.02)';
     if (t.includes('500')) return 'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)';
-    if (t.includes('C') || t.includes('c') || t.includes('แป้ง')) return 'หอมเจียวC 5กก (รหัส OF03)';
+    if (t.includes('C') || t.includes('c') || t.includes('แป้ง') || t.includes('หนา')) return 'หอมเจียวC 5กก (รหัส OF03)';
     if (t.includes('แดง')) return 'หอมเจียวยางแดง 5กก (รหัส OF01)';
     return 'หอมเจียวยางเขียว 5กก (รหัส OF02)';
   }
@@ -89,9 +128,12 @@ export function normalizeProductName(name: string): string | null {
         t.includes('สูตร 40') ||
         t.includes('สูตร 4') ||
         t.includes('สูตร4') ||
+        t.includes('สูตรD') ||
+        t.includes('สูตร D') ||
         t.includes('เจียวD') ||
         t.includes('เจียว D') ||
-        t.includes('เจียว d')))
+        t.includes('เจียว d') ||
+        lower.includes('สูตรd')))
   ) {
     return 'กระเทียมเจียวD สูตร40 (รหัส FG01)';
   }
@@ -102,8 +144,11 @@ export function normalizeProductName(name: string): string | null {
         t.includes('สูตร 60') ||
         t.includes('สูตร 6') ||
         t.includes('สูตร6') ||
+        t.includes('สูตรC') ||
+        t.includes('สูตร C') ||
         t.includes('เจียวC') ||
         t.includes('เจียว C') ||
+        lower.includes('สูตรc') ||
         lower.includes('เจียว c')))
   ) {
     return 'กระเทียมเจียวC สูตร60 (รหัส FG03)';
@@ -115,8 +160,11 @@ export function normalizeProductName(name: string): string | null {
         t.includes('สูตร 80') ||
         t.includes('สูตร 8') ||
         t.includes('สูตร8') ||
+        t.includes('สูตรB') ||
+        t.includes('สูตร B') ||
         t.includes('เจียวB') ||
         t.includes('เจียว B') ||
+        lower.includes('สูตรb') ||
         lower.includes('เจียว b')))
   ) {
     return 'กระเทียมเจียวB สูตร80 (รหัส FG04)';
@@ -128,8 +176,11 @@ export function normalizeProductName(name: string): string | null {
         t.includes('สูตร 100') ||
         t.includes('สูตร 1') ||
         t.includes('สูตร1') ||
+        t.includes('สูตรA') ||
+        t.includes('สูตร A') ||
         t.includes('เจียวA') ||
         t.includes('เจียว A') ||
+        lower.includes('สูตรa') ||
         lower.includes('เจียว a')))
   ) {
     return 'กระเทียมเจียวA สูตร100 (รหัส FG06)';
@@ -137,9 +188,9 @@ export function normalizeProductName(name: string): string | null {
 
   // Generic Garlic
   if (t.includes('กระเทียมเจียว') || t.includes('กระเทียมทอด')) {
-    if (t.includes('100') || t.includes('A') || t.includes('a')) return 'กระเทียมเจียวA สูตร100 (รหัส FG06)';
-    if (t.includes('80') || t.includes('B') || t.includes('b')) return 'กระเทียมเจียวB สูตร80 (รหัส FG04)';
-    if (t.includes('60') || t.includes('C') || t.includes('c')) return 'กระเทียมเจียวC สูตร60 (รหัส FG03)';
+    if (t.includes('100') || t.includes('A') || t.includes('a') || t.includes('สูตรA')) return 'กระเทียมเจียวA สูตร100 (รหัส FG06)';
+    if (t.includes('80') || t.includes('B') || t.includes('b') || t.includes('สูตรB')) return 'กระเทียมเจียวB สูตร80 (รหัส FG04)';
+    if (t.includes('60') || t.includes('C') || t.includes('c') || t.includes('สูตรC')) return 'กระเทียมเจียวC สูตร60 (รหัส FG03)';
     return 'กระเทียมเจียวD สูตร40 (รหัส FG01)';
   }
 
@@ -156,127 +207,59 @@ export function isStockTrackedProduct(name: string): boolean {
 }
 
 /**
- * Sample Initial Stock Production Entries with factory & online source separation
+ * Sample Initial Stock Production Entries with factory & online source separation.
+ * Factory baseline sets:
+ * - หอมเจียวยางแดง: 225 กก
+ * - หอมเจียวยางเขียว: 520 กก
+ * - หอมเจียวหนา (หอมเจียวC): 165 กก
+ * - กระเทียมสูตรD: 1890 กก
+ * - กระเทียมสูตรB: 960 กก
+ * - นอกนั้นให้ตัดสต็อคเป็น 0
  */
 export function getSampleStockEntries(): StockEntry[] {
-  const todayStr = '2026-08-03';
-  const yesterdayStr = '2026-08-02';
-  const prevStr = '2026-08-01';
+  const baseDate = '2026-09-08';
 
   return [
     {
-      id: 'stk-20260803-day',
-      dateKey: todayStr,
+      id: 'stk-baseline-factory-20260908',
+      dateKey: baseDate,
       shift: 'day',
-      shiftLabel: 'กะเช้า (08:00 - 20:00)',
+      shiftLabel: 'ยอดยกมาเริ่มต้น (พร้อมขาย)',
       stockSource: 'factory',
-      recordedBy: 'สมชาย (หัวหน้ากะเช้า)',
-      note: 'ผลิตล็อตปกติประจำวัน เครื่องจักรทำงานปกติ (สต็อคโรงงาน)',
-      totalWeightKg: 750,
-      createdAt: '2026-08-03T08:30:00.000Z',
+      recordedBy: 'ปรับสต็อคโรงงาน (นับจริง)',
+      note: 'สต็อคพร้อมขายโรงงาน ปรับปรุงใหม่: ยางแดง 225 กก., ยางเขียว 520 กก., หอมเจียวหนา 165 กก., กระเทียมD 1,890 กก., กระเทียมB 960 กก. (นอกนั้น 0 กก.)',
+      totalWeightKg: 3760,
+      createdAt: `${baseDate}T00:00:00.000Z`,
       items: [
-        { id: 'i1', productName: 'หอมเจียวยางแดง 5กก (รหัส OF01)', weightKg: 180 },
-        { id: 'i2', productName: 'หอมเจียวยางเขียว 5กก (รหัส OF02)', weightKg: 150 },
-        { id: 'i3', productName: 'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)', weightKg: 70 },
-        { id: 'i4', productName: 'หอมเจียวC 5กก (รหัส OF03)', weightKg: 50 },
-        { id: 'i4_1', productName: 'กระเทียมเจียวD สูตร40 (รหัส FG01)', weightKg: 100 },
-        { id: 'i4_2', productName: 'กระเทียมเจียวC สูตร60 (รหัส FG03)', weightKg: 80 },
-        { id: 'i4_3', productName: 'กระเทียมเจียวB สูตร80 (รหัส FG04)', weightKg: 70 },
-        { id: 'i4_4', productName: 'กระเทียมเจียวA สูตร100 (รหัส FG06)', weightKg: 50 },
+        { id: 'f-1', productName: 'หอมเจียวยางแดง 5กก (รหัส OF01)', weightKg: 225 },
+        { id: 'f-2', productName: 'หอมเจียวยางเขียว 5กก (รหัส OF02)', weightKg: 520 },
+        { id: 'f-3', productName: 'หอมเจียวC 5กก (รหัส OF03)', weightKg: 165 },
+        { id: 'f-4', productName: 'กระเทียมเจียวD สูตร40 (รหัส FG01)', weightKg: 1890 },
+        { id: 'f-5', productName: 'กระเทียมเจียวB สูตร80 (รหัส FG04)', weightKg: 960 },
+        { id: 'f-6', productName: 'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)', weightKg: 0 },
+        { id: 'f-7', productName: 'หอมเจียวยางเขียว 100กรัม (รหัส OF02.02)', weightKg: 0 },
+        { id: 'f-8', productName: 'กระเทียมเจียวC สูตร60 (รหัส FG03)', weightKg: 0 },
+        { id: 'f-9', productName: 'กระเทียมเจียวA สูตร100 (รหัส FG06)', weightKg: 0 },
       ],
     },
     {
-      id: 'stk-20260803-online',
-      dateKey: todayStr,
+      id: 'stk-baseline-online-20260908',
+      dateKey: baseDate,
       shift: 'day',
       shiftLabel: 'กะเช้า (08:00 - 20:00)',
       stockSource: 'online',
       recordedBy: 'สุรีรัตน์ (แอดมินออนไลน์)',
-      note: 'เบิกเข้าคลังออนไลน์สำหรับออเดอร์ Shopee / TikTok / เพจ',
-      totalWeightKg: 200,
-      createdAt: '2026-08-03T09:15:00.000Z',
+      note: 'สต็อคเริ่มต้นคลังออนไลน์สำหรับ Shopee / TikTok / เพจ',
+      totalWeightKg: 1350,
+      createdAt: `${baseDate}T09:00:00.000Z`,
       items: [
-        { id: 'onl-1', productName: 'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)', weightKg: 60 },
-        { id: 'onl-2', productName: 'หอมเจียวยางเขียว 100กรัม (รหัส OF02.02)', weightKg: 40 },
-        { id: 'onl-3', productName: 'หอมเจียวยางแดง 5กก (รหัส OF01)', weightKg: 50 },
-        { id: 'onl-4', productName: 'กระเทียมเจียวD สูตร40 (รหัส FG01)', weightKg: 50 },
-      ],
-    },
-    {
-      id: 'stk-20260803-night',
-      dateKey: todayStr,
-      shift: 'night',
-      shiftLabel: 'กะดึก (20:00 - 08:00)',
-      stockSource: 'factory',
-      recordedBy: 'วิชัย (หัวหน้ากะดึก)',
-      note: 'เร่งผลิตหอมเจียวและกระเทียมเจียวเพิ่มสำหรับส่งลูกค้า',
-      totalWeightKg: 550,
-      createdAt: '2026-08-03T20:30:00.000Z',
-      items: [
-        { id: 'i5', productName: 'หอมเจียวยางแดง 5กก (รหัส OF01)', weightKg: 200 },
-        { id: 'i6', productName: 'หอมเจียวยางเขียว 5กก (รหัส OF02)', weightKg: 100 },
-        { id: 'i7', productName: 'หอมเจียวC 5กก (รหัส OF03)', weightKg: 50 },
-        { id: 'i7_1', productName: 'กระเทียมเจียวD สูตร40 (รหัส FG01)', weightKg: 100 },
-        { id: 'i7_2', productName: 'กระเทียมเจียวC สูตร60 (รหัส FG03)', weightKg: 100 },
-      ],
-    },
-    {
-      id: 'stk-20260802-day',
-      dateKey: yesterdayStr,
-      shift: 'day',
-      shiftLabel: 'กะเช้า (08:00 - 20:00)',
-      stockSource: 'factory',
-      recordedBy: 'สมชาย (หัวหน้ากะเช้า)',
-      note: 'ผลิตเต็มกำลัง',
-      totalWeightKg: 800,
-      createdAt: '2026-08-02T08:30:00.000Z',
-      items: [
-        { id: 'i8', productName: 'หอมเจียวยางแดง 5กก (รหัส OF01)', weightKg: 220 },
-        { id: 'i9', productName: 'หอมเจียวยางเขียว 5กก (รหัส OF02)', weightKg: 180 },
-        { id: 'i10', productName: 'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)', weightKg: 50 },
-        { id: 'i11', productName: 'หอมเจียวC 5กก (รหัส OF03)', weightKg: 50 },
-        { id: 'i11_1', productName: 'กระเทียมเจียวD สูตร40 (รหัส FG01)', weightKg: 120 },
-        { id: 'i11_2', productName: 'กระเทียมเจียวC สูตร60 (รหัส FG03)', weightKg: 100 },
-        { id: 'i11_3', productName: 'กระเทียมเจียวB สูตร80 (รหัส FG04)', weightKg: 50 },
-        { id: 'i11_4', productName: 'กระเทียมเจียวA สูตร100 (รหัส FG06)', weightKg: 30 },
-      ],
-    },
-    {
-      id: 'stk-20260802-online',
-      dateKey: yesterdayStr,
-      shift: 'day',
-      shiftLabel: 'กะเช้า (08:00 - 20:00)',
-      stockSource: 'online',
-      recordedBy: 'สุรีรัตน์ (แอดมินออนไลน์)',
-      note: 'จัดเตรียมสต็อคออนไลน์',
-      totalWeightKg: 150,
-      createdAt: '2026-08-02T10:00:00.000Z',
-      items: [
-        { id: 'onl-5', productName: 'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)', weightKg: 50 },
-        { id: 'onl-6', productName: 'หอมเจียวยางเขียว 100กรัม (รหัส OF02.02)', weightKg: 40 },
-        { id: 'onl-7', productName: 'หอมเจียวยางแดง 5กก (รหัส OF01)', weightKg: 30 },
-        { id: 'onl-8', productName: 'กระเทียมเจียวD สูตร40 (รหัส FG01)', weightKg: 30 },
-      ],
-    },
-    {
-      id: 'stk-20260801-day',
-      dateKey: prevStr,
-      shift: 'day',
-      shiftLabel: 'กะเช้า (08:00 - 20:00)',
-      stockSource: 'factory',
-      recordedBy: 'สมชาย (หัวหน้ากะเช้า)',
-      note: 'เริ่มเดือนใหม่ ผลิตสินค้าครบทุกรายการ',
-      totalWeightKg: 720,
-      createdAt: '2026-08-01T08:30:00.000Z',
-      items: [
-        { id: 'i12', productName: 'หอมเจียวยางแดง 5กก (รหัส OF01)', weightKg: 200 },
-        { id: 'i13', productName: 'หอมเจียวยางเขียว 5กก (รหัส OF02)', weightKg: 120 },
-        { id: 'i14', productName: 'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)', weightKg: 50 },
-        { id: 'i15', productName: 'หอมเจียวC 5กก (รหัส OF03)', weightKg: 50 },
-        { id: 'i15_1', productName: 'กระเทียมเจียวD สูตร40 (รหัส FG01)', weightKg: 100 },
-        { id: 'i15_2', productName: 'กระเทียมเจียวC สูตร60 (รหัส FG03)', weightKg: 100 },
-        { id: 'i15_3', productName: 'กระเทียมเจียวB สูตร80 (รหัส FG04)', weightKg: 60 },
-        { id: 'i15_4', productName: 'กระเทียมเจียวA สูตร100 (รหัส FG06)', weightKg: 40 },
+        { id: 'onl-1', productName: 'หอมเจียวยางเขียว 5กก (รหัส OF02)', weightKg: 300 },
+        { id: 'onl-2', productName: 'หอมเจียวยางแดง 5กก (รหัส OF01)', weightKg: 200 },
+        { id: 'onl-3', productName: 'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)', weightKg: 200 },
+        { id: 'onl-4', productName: 'หอมเจียวยางเขียว 100กรัม (รหัส OF02.02)', weightKg: 150 },
+        { id: 'onl-5', productName: 'หอมเจียวC 5กก (รหัส OF03)', weightKg: 100 },
+        { id: 'onl-6', productName: 'กระเทียมเจียวD สูตร40 (รหัส FG01)', weightKg: 200 },
+        { id: 'onl-7', productName: 'กระเทียมเจียวC สูตร60 (รหัส FG03)', weightKg: 200 },
       ],
     },
   ];
@@ -341,29 +324,45 @@ export function calculateDailyStockSummary(
   // Set of all unique product names across presets, stock entries, and orders
   const allProductNamesSet = new Set<string>(FACTORY_STOCK_PRESET_NAMES);
 
-  // 1. Calculate PRIOR cumulative stock entries (STOCK_CUTOFF_DATE <= entry.dateKey < target dateKey)
+  // 1. Calculate PRIOR cumulative stock entries (Cutoff date <= entry.dateKey <= target dateKey for baseline, or < target dateKey for shifts)
   const priorProducedMap: Record<string, number> = {};
 
   stockEntries.forEach((entry) => {
     if (matchStockSource(entry.stockSource)) {
+      const cutoff = entry.stockSource === 'online' ? ONLINE_STOCK_CUTOFF_DATE : FACTORY_STOCK_CUTOFF_DATE;
+      const isBaseline = isBaselineStockEntry(entry);
+
       entry.items.forEach((item) => {
         const pName = normalizeProductName(item.productName);
         if (pName) {
           allProductNamesSet.add(pName);
-          if (entry.dateKey && entry.dateKey >= STOCK_CUTOFF_DATE && entry.dateKey < dateKey) {
-            priorProducedMap[pName] = (priorProducedMap[pName] || 0) + (Number(item.weightKg) || 0);
+          const w = Number(item.weightKg) || 0;
+          if (entry.dateKey && entry.dateKey >= cutoff) {
+            if (isBaseline) {
+              // Baseline entry serves as opening balance on entry.dateKey and all subsequent dates
+              if (entry.dateKey <= dateKey) {
+                priorProducedMap[pName] = (priorProducedMap[pName] || 0) + w;
+              }
+            } else {
+              // Regular production shifts prior to target dateKey
+              if (entry.dateKey < dateKey) {
+                priorProducedMap[pName] = (priorProducedMap[pName] || 0) + w;
+              }
+            }
           }
         }
       });
     }
   });
 
-  // 2. Calculate PRIOR cumulative order sales (STOCK_CUTOFF_DATE <= order dateKey < target dateKey)
+  // 2. Calculate PRIOR cumulative order sales (Cutoff date <= order dateKey < target dateKey)
   const priorSoldMap: Record<string, number> = {};
 
   orders.forEach((order) => {
     if (order.deliveryStatus === 'cancelled') return;
     if (!matchOrderSource(order.stockSource)) return;
+
+    const cutoff = order.stockSource === 'online' ? ONLINE_STOCK_CUTOFF_DATE : FACTORY_STOCK_CUTOFF_DATE;
 
     const d = new Date(order.createdAt);
     if (isNaN(d.getTime())) return;
@@ -377,7 +376,7 @@ export function calculateDailyStockSummary(
       const pName = normalizeProductName(item.productName);
       if (pName) {
         allProductNamesSet.add(pName);
-        if (oDateKey >= STOCK_CUTOFF_DATE && oDateKey < dateKey) {
+        if (oDateKey >= cutoff && oDateKey < dateKey) {
           priorSoldMap[pName] = (priorSoldMap[pName] || 0) + (Number(item.weightKg) || 0);
         }
       }
@@ -385,8 +384,9 @@ export function calculateDailyStockSummary(
   });
 
   // 3. TODAY'S stock entries (dateKey === target dateKey)
+  // Exclude baseline entries so they don't count as today's shift production
   const dayEntries = stockEntries.filter(
-    (e) => e.dateKey === dateKey && matchStockSource(e.stockSource)
+    (e) => e.dateKey === dateKey && matchStockSource(e.stockSource) && !isBaselineStockEntry(e)
   );
 
   const producedProductMap: Record<string, { dayKg: number; nightKg: number; totalKg: number }> = {};
@@ -420,6 +420,8 @@ export function calculateDailyStockSummary(
     if (order.deliveryStatus === 'cancelled') return;
     if (!matchOrderSource(order.stockSource)) return;
 
+    const cutoff = order.stockSource === 'online' ? ONLINE_STOCK_CUTOFF_DATE : FACTORY_STOCK_CUTOFF_DATE;
+
     const d = new Date(order.createdAt);
     if (isNaN(d.getTime())) return;
 
@@ -428,7 +430,7 @@ export function calculateDailyStockSummary(
     const day = String(d.getDate()).padStart(2, '0');
     const oDateKey = `${y}-${m}-${day}`;
 
-    if (oDateKey === dateKey) {
+    if (oDateKey === dateKey && oDateKey >= cutoff) {
       let orderMatchedWeight = 0;
       const orderItems = order.items.map((item) => {
         const pName = normalizeProductName(item.productName);
@@ -552,26 +554,38 @@ export function getRealtimeAvailableStock(
     return { availableKg: 0, totalProducedKg: 0, totalSoldKg: 0 };
   }
 
-  // 1. Total produced in stock entries for stockSource
+  const cutoff = stockSource === 'online' ? ONLINE_STOCK_CUTOFF_DATE : FACTORY_STOCK_CUTOFF_DATE;
+
+  // 1. Total produced in stock entries for stockSource (>= cutoff)
   let totalProducedKg = 0;
   stockEntries.forEach((entry) => {
     const actualSource = entry.stockSource || 'factory';
     if (actualSource === stockSource) {
-      entry.items.forEach((item) => {
-        if (normalizeProductName(item.productName) === normName) {
-          totalProducedKg += Number(item.weightKg) || 0;
-        }
-      });
+      if (!entry.dateKey || entry.dateKey >= cutoff) {
+        entry.items.forEach((item) => {
+          if (normalizeProductName(item.productName) === normName) {
+            totalProducedKg += Number(item.weightKg) || 0;
+          }
+        });
+      }
     }
   });
 
-  // 2. Total sold in orders for stockSource (non-cancelled and excluding excludeOrderId)
+  // 2. Total sold in orders for stockSource (non-cancelled, >= cutoff, and excluding excludeOrderId)
   let totalSoldKg = 0;
   orders.forEach((order) => {
     if (order.deliveryStatus === 'cancelled') return;
     if (excludeOrderId && order.id === excludeOrderId) return;
     const actualSource = order.stockSource || 'factory';
     if (actualSource === stockSource) {
+      const d = new Date(order.createdAt);
+      if (!isNaN(d.getTime())) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const oDateKey = `${y}-${m}-${day}`;
+        if (oDateKey < cutoff) return;
+      }
       order.items.forEach((item) => {
         if (normalizeProductName(item.productName) === normName) {
           totalSoldKg += Number(item.weightKg) || 0;
@@ -590,7 +604,7 @@ export function getRealtimeAvailableStock(
 }
 
 /**
- * Get Daily Stock Summaries for all dates found in stock entries or orders (from Aug 1 onwards)
+ * Get Daily Stock Summaries for all dates found in stock entries or orders
  */
 export function getAllDailyStockSummaries(
   stockEntries: StockEntry[],
@@ -611,32 +625,34 @@ export function getAllDailyStockSummaries(
     return actual === stockSourceFilter;
   };
 
-  // Collect dateKeys from stockEntries (Aug 1 onwards)
+  // Collect dateKeys from stockEntries
   stockEntries.forEach((e) => {
-    if (e.dateKey && e.dateKey >= STOCK_CUTOFF_DATE && matchStockSource(e.stockSource)) {
+    const cutoff = e.stockSource === 'online' ? ONLINE_STOCK_CUTOFF_DATE : FACTORY_STOCK_CUTOFF_DATE;
+    if (e.dateKey && e.dateKey >= cutoff && matchStockSource(e.stockSource)) {
       datesSet.add(e.dateKey);
     }
   });
 
-  // Collect dateKeys from orders (Aug 1 onwards)
+  // Collect dateKeys from orders
   orders.forEach((o) => {
     if (!matchOrderSource(o.stockSource)) return;
+    const cutoff = o.stockSource === 'online' ? ONLINE_STOCK_CUTOFF_DATE : FACTORY_STOCK_CUTOFF_DATE;
     const d = new Date(o.createdAt);
     if (!isNaN(d.getTime())) {
       const year = d.getFullYear();
       const month = String(d.getMonth() + 1).padStart(2, '0');
       const day = String(d.getDate()).padStart(2, '0');
       const oDateKey = `${year}-${month}-${day}`;
-      if (oDateKey >= STOCK_CUTOFF_DATE) {
+      if (oDateKey >= cutoff) {
         datesSet.add(oDateKey);
       }
     }
   });
 
   // Always ensure today is present if >= cutoff
-  const now = new Date();
-  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  if (todayKey >= STOCK_CUTOFF_DATE) {
+  const todayKey = getTodayDateKey();
+  const filterCutoff = stockSourceFilter === 'online' ? ONLINE_STOCK_CUTOFF_DATE : FACTORY_STOCK_CUTOFF_DATE;
+  if (todayKey >= filterCutoff) {
     datesSet.add(todayKey);
   }
 

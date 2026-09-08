@@ -654,7 +654,7 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
                         {item.productName && (
                           isTracked && stockInfo ? (
                             <span
-                              className={`text-[10px] font-bold px-1.5 py-0.2 rounded-md ${
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1.5 flex-wrap ${
                                 stockInfo.availableKg <= 0
                                   ? 'bg-rose-100 text-rose-800 border border-rose-200'
                                   : isExceeding
@@ -662,7 +662,25 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
                                   : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                               }`}
                             >
-                              พร้อมขาย {stockSource === 'online' ? 'ออนไลน์' : 'โรงงาน'}: {stockInfo.availableKg} กก.
+                              <span>
+                                พร้อมขาย {stockSource === 'online' ? 'ออนไลน์' : 'โรงงาน'}:{' '}
+                                <strong className="font-extrabold">{stockInfo.availableKg}</strong> กก.
+                              </span>
+                              {Number(item.weightKg) > 0 && (
+                                <span className="inline-flex items-center gap-1 text-slate-600 font-normal">
+                                  <span>➔ ตัดขาย {item.weightKg} กก.</span>
+                                  <span>➔ คงเหลือ</span>
+                                  <span
+                                    className={`font-black px-1 rounded ${
+                                      remainingAfter !== null && remainingAfter < 0
+                                        ? 'bg-rose-200 text-rose-900'
+                                        : 'bg-emerald-200/80 text-emerald-900 font-bold'
+                                    }`}
+                                  >
+                                    {remainingAfter} กก.
+                                  </span>
+                                </span>
+                              )}
                             </span>
                           ) : (
                             <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded-md bg-slate-100 text-slate-600 border border-slate-200">

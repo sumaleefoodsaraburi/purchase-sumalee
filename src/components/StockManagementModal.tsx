@@ -6,6 +6,7 @@ import {
   getAllDailyStockSummaries,
   normalizeProductName,
   isStockTrackedProduct,
+  getTodayDateKey,
 } from '../utils/stockUtils';
 import { formatWeight, formatCurrency } from '../utils/formatters';
 import {
@@ -53,13 +54,12 @@ export const StockManagementModal: React.FC<StockManagementModalProps> = ({
   onSaveStockEntry,
   onDeleteStockEntry,
 }) => {
-  const now = new Date();
-  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const todayStr = getTodayDateKey();
 
   const [activeTab, setActiveTab] = useState<'form' | 'summary' | 'history'>('summary');
   
-  // Stock Source Filter for views ('all' | 'factory' | 'online')
-  const [stockSourceFilter, setStockSourceFilter] = useState<'all' | 'factory' | 'online'>('all');
+  // Stock Source Filter for views ('all' | 'factory' | 'online') - Default to 'factory' for factory stock matching
+  const [stockSourceFilter, setStockSourceFilter] = useState<'all' | 'factory' | 'online'>('factory');
 
   // Selected Date for Tab 2 Summary
   const [selectedSummaryDate, setSelectedSummaryDate] = useState<string>(todayStr);
