@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { PurchaseOrder, StockEntry } from './types';
+import { PurchaseOrder, StockEntry, DocumentType } from './types';
 import { loadOrders, saveOrders, resetOrdersToDefault, SAMPLE_ORDERS } from './data/sampleOrders';
 import {
   subscribeToOrders,
@@ -41,6 +41,7 @@ export default function App() {
   const [editingOrder, setEditingOrder] = useState<PurchaseOrder | null>(null);
 
   const [receiptOrder, setReceiptOrder] = useState<PurchaseOrder | null>(null);
+  const [receiptDocType, setReceiptDocType] = useState<DocumentType>('receipt');
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
 
   const [shippingLabelOrder, setShippingLabelOrder] = useState<PurchaseOrder | null>(null);
@@ -223,8 +224,9 @@ export default function App() {
   };
 
   // View Receipt Modal
-  const handleViewReceipt = (order: PurchaseOrder) => {
+  const handleViewReceipt = (order: PurchaseOrder, docType: DocumentType = 'receipt') => {
     setReceiptOrder(order);
+    setReceiptDocType(docType);
     setIsReceiptOpen(true);
   };
 
@@ -244,6 +246,7 @@ export default function App() {
       {/* HEADER BAR */}
       <Header
         onOpenNewOrder={handleOpenNewOrder}
+        onOpenOrdersList={() => setActiveTab('orders')}
         onOpenStockManagement={() => setIsStockModalOpen(true)}
         onOpenDailyWeightSummary={() => setIsDailyWeightModalOpen(true)}
         onOpenCustomerSummary={() => setActiveTab('customers')}
@@ -352,6 +355,7 @@ export default function App() {
           setEditingOrder(null);
         }}
         onSaveOrder={handleSaveOrder}
+        onViewReceipt={handleViewReceipt}
         editingOrder={editingOrder}
         existingOrders={orders}
         stockEntries={stockEntries}
@@ -361,6 +365,7 @@ export default function App() {
       <ReceiptModal
         isOpen={isReceiptOpen}
         order={receiptOrder}
+        initialDocType={receiptDocType}
         onClose={() => {
           setIsReceiptOpen(false);
           setReceiptOrder(null);

@@ -1,9 +1,10 @@
 import React from 'react';
-import { Plus, Calendar, MapPin, Phone, Database, Scale, BarChart2, Users } from 'lucide-react';
+import { Plus, Calendar, MapPin, Phone, Database, Scale, BarChart2, Users, ListFilter } from 'lucide-react';
 import { formatThaiDateTime } from '../utils/formatters';
 
 interface HeaderProps {
   onOpenNewOrder: () => void;
+  onOpenOrdersList?: () => void;
   onOpenStockManagement?: () => void;
   onOpenDailyWeightSummary?: () => void;
   onOpenCustomerSummary?: () => void;
@@ -12,6 +13,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   onOpenNewOrder,
+  onOpenOrdersList,
   onOpenStockManagement,
   onOpenDailyWeightSummary,
   onOpenCustomerSummary,
@@ -70,6 +72,17 @@ export const Header: React.FC<HeaderProps> = ({
               <Plus className="w-4 h-4 stroke-[2.5]" />
               <span>คีย์ใบสั่งซื้อ</span>
             </button>
+
+            {/* ปุ่มดูและแก้ไขออร์เดอร์ */}
+            {onOpenOrdersList && (
+              <button
+                onClick={onOpenOrdersList}
+                className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-amber-200 bg-slate-800 hover:bg-slate-700 hover:text-white rounded-xl border border-amber-400/40 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <ListFilter className="w-4 h-4 text-amber-400" />
+                <span>ดู / แก้ไขออเดอร์</span>
+              </button>
+            )}
 
             {/* 2. ปุ่มคีย์สต็อกโรงงาน */}
             {onOpenStockManagement && (

@@ -26,6 +26,8 @@ export interface TaxInvoiceInfo {
   address?: string;
 }
 
+export type DocumentType = 'receipt' | 'po' | 'tax_invoice';
+
 export interface PurchaseOrder {
   id: string;
   orderNumber: string; // e.g. PO-20260731-001
@@ -48,6 +50,8 @@ export interface PurchaseOrder {
   vatRate?: number;      // อัตรา VAT เช่น 7
   vatAmount?: number;    // จำนวนเงินภาษีมูลค่าเพิ่ม (บาท)
   subtotalAmount?: number; // ยอดรวมสินค้าก่อนภาษี (บาท)
+  receiptNumber?: string;  // เลขที่ใบเสร็จรับเงิน e.g. RC-20260731-001
+  receiptDate?: string;    // วันที่ออกใบเสร็จรับเงิน
 }
 
 export type SummaryPeriod = 'today' | '7days' | '30days' | 'all';

@@ -394,10 +394,10 @@ export const CustomerOrderHistoryModal: React.FC<CustomerOrderHistoryModalProps>
                           {onViewReceipt && (
                             <button
                               onClick={() => onViewReceipt(ord)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-300 transition-colors"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-lg border border-emerald-300 transition-colors"
                             >
-                              <Printer className="w-3 h-3 text-slate-500" />
-                              <span>ใบสั่งซื้อ PO</span>
+                              <Printer className="w-3 h-3 text-emerald-600" />
+                              <span>ใบเสร็จรับเงิน</span>
                             </button>
                           )}
                         </div>

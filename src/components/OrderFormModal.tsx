@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { PurchaseOrder, OrderItem, PaymentStatus, DeliveryStatus, TaxInvoiceInfo, StockLocation, StockEntry } from '../types';
+import { PurchaseOrder, OrderItem, PaymentStatus, DeliveryStatus, TaxInvoiceInfo, StockLocation, StockEntry, DocumentType } from '../types';
 import { POPULAR_PRODUCTS_PRESETS } from '../data/sampleOrders';
-import { formatCurrency, formatWeight, generatePoNumber } from '../utils/formatters';
+import { formatCurrency, formatWeight, generatePoNumber, generateReceiptNumber } from '../utils/formatters';
 import { normalizeProductName, getRealtimeAvailableStock, isStockTrackedProduct } from '../utils/stockUtils';
+import { ReceiptModal } from './ReceiptModal';
 import {
   COURIER_OPTIONS,
   getTrackingUrl,
@@ -41,12 +42,14 @@ import {
   Copy,
   Check,
   ClipboardList,
+  Printer,
 } from 'lucide-react';
 
 interface OrderFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSaveOrder: (order: PurchaseOrder) => void;
+  onViewReceipt?: (order: PurchaseOrder, docType?: DocumentType) => void;
   editingOrder?: PurchaseOrder | null;
   existingOrders?: PurchaseOrder[];
   stockEntries?: StockEntry[];
@@ -56,6 +59,7 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
   isOpen,
   onClose,
   onSaveOrder,
+  onViewReceipt,
   editingOrder,
   existingOrders = [],
   stockEntries = [],
@@ -98,6 +102,12 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
   const [taxBranch, setTaxBranch] = useState('สำนักงานใหญ่');
   const [taxAddress, setTaxAddress] = useState('');
   const [useCustomerAddressForTax, setUseCustomerAddressForTax] = useState(true);
+
+  // Receipt State (การออกใบเสร็จรับเงิน)
+  const [receiptNumber, setReceiptNumber] = useState<string>('');
+  const [receiptDate, setReceiptDate] = useState<string>('');
+  const [isDraftReceiptOpen, setIsDraftReceiptOpen] = useState(false);
+  const [draftReceiptOrder, setDraftReceiptOrder] = useState<PurchaseOrder | null>(null);
 
   // Computed PO Number for the selected date
   const calculatedPoNumber = editingOrder
@@ -184,6 +194,13 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
         setUseCustomerAddressForTax(true);
       }
 
+      setReceiptNumber(editingOrder.receiptNumber || generateReceiptNumber(editingOrder.orderNumber));
+      setReceiptDate(
+        editingOrder.receiptDate
+          ? editingOrder.receiptDate.slice(0, 10)
+          : (editingOrder.createdAt ? editingOrder.createdAt.slice(0, 10) : '')
+      );
+
       setItems(
         editingOrder.items.length > 0
           ? editingOrder.items
@@ -223,6 +240,10 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
     setTaxBranch('สำนักงานใหญ่');
     setTaxAddress('');
     setUseCustomerAddressForTax(true);
+    setReceiptNumber('');
+    setReceiptDate('');
+    setIsDraftReceiptOpen(false);
+    setDraftReceiptOrder(null);
     setItems([
       {
         id: `item-${Date.now()}`,
@@ -364,43 +385,42 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
   const grandTotalAmount = Math.round((taxableBase + vatAmount) * 100) / 100;
   const parsedBoxCount = Number(boxCount) > 0 ? Number(boxCount) : undefined;
 
-  // Submit Handler
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  // Build Order Object with Validation
+  const buildOrderObject = (): PurchaseOrder | null => {
     setFormError('');
 
     // Validation
     if (!customerName.trim()) {
       setFormError('กรุณากรอกชื่อลูกค้า');
-      return;
+      return null;
     }
     const finalPhone = customerPhone.trim() || '-';
 
     if (requestTaxInvoice) {
       if (!taxCompanyName.trim()) {
         setFormError('กรุณากรอกชื่อบริษัท / ผู้เสียภาษี สำหรับใบกำกับภาษี');
-        return;
+        return null;
       }
       if (!taxId.trim()) {
         setFormError('กรุณากรอกเลขประจำตัวผู้เสียภาษี (13 หลัก)');
-        return;
+        return null;
       }
     }
 
     const validItems = items.filter((item) => item.productName.trim() !== '');
     if (validItems.length === 0) {
       setFormError('กรุณากรอกชื่อสินค้าอย่างน้อย 1 รายการ');
-      return;
+      return null;
     }
 
     for (const item of validItems) {
       if (Number(item.pricePerKg) < 0) {
         setFormError(`กรุณากรอกราคา (บาท/กก.) ให้ถูกต้องสำหรับ "${item.productName}"`);
-        return;
+        return null;
       }
       if (Number(item.weightKg) <= 0) {
         setFormError(`กรุณากรอกจำนวนน้ำหนัก (กก.) ให้ถูกต้องสำหรับ "${item.productName}"`);
-        return;
+        return null;
       }
     }
 
@@ -413,6 +433,8 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
     }
 
     const orderNumber = calculatedPoNumber;
+    const finalReceiptNumber = receiptNumber.trim() || generateReceiptNumber(orderNumber);
+    const finalReceiptDate = receiptDate ? new Date(receiptDate).toISOString() : isoDate;
 
     const cleanedTrackings = trackingList.map((t) => t.trim()).filter((t) => t.length > 0);
     const finalBoxCount = Math.max(parsedBoxCount || 1, cleanedTrackings.length || 1);
@@ -455,11 +477,100 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
         branch: requestTaxInvoice ? taxBranch.trim() : undefined,
         address: requestTaxInvoice ? (useCustomerAddressForTax ? (customerAddress.trim() || '-') : (taxAddress.trim() || customerAddress.trim())) : undefined,
       },
+      receiptNumber: finalReceiptNumber,
+      receiptDate: finalReceiptDate,
     };
+
+    return savedPO;
+  };
+
+  // Submit Handler (Save Only)
+  const handleSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const savedPO = buildOrderObject();
+    if (!savedPO) return;
 
     onSaveOrder(savedPO);
     resetForm();
     onClose();
+  };
+
+  // Save Order and immediately view / print Receipt
+  const handleSaveAndIssueReceipt = (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    const savedPO = buildOrderObject();
+    if (!savedPO) return;
+
+    onSaveOrder(savedPO);
+    resetForm();
+    onClose();
+    if (onViewReceipt) {
+      onViewReceipt(savedPO, 'receipt');
+    }
+  };
+
+  // Preview Draft Receipt (Without saving or losing form inputs)
+  const handlePreviewReceipt = () => {
+    const validItems = items.filter((item) => item.productName.trim() !== '');
+    const previewItems = validItems.length > 0
+      ? validItems.map((it) => ({
+          ...it,
+          pricePerKg: Number(it.pricePerKg) || 0,
+          weightKg: Number(it.weightKg) || 0,
+          totalPrice: (Number(it.pricePerKg) || 0) * (Number(it.weightKg) || 0),
+          packSize: it.packSize || '1kg',
+        }))
+      : items.map((it, idx) => ({
+          id: it.id || `item-${idx}`,
+          productName: it.productName.trim() || 'หอมเจียวคัดพิเศษ (ตัวอย่าง)',
+          pricePerKg: Number(it.pricePerKg) || 160,
+          weightKg: Number(it.weightKg) || 10,
+          totalPrice: (Number(it.pricePerKg) || 160) * (Number(it.weightKg) || 10),
+          packSize: it.packSize || '1kg',
+        }));
+
+    const cleanedTrackings = trackingList.map((t) => t.trim()).filter((t) => t.length > 0);
+    const orderNum = calculatedPoNumber;
+    const finalReceiptNumber = receiptNumber.trim() || generateReceiptNumber(orderNum);
+
+    const draftPO: PurchaseOrder = {
+      id: editingOrder ? editingOrder.id : 'preview-draft',
+      orderNumber: orderNum,
+      createdAt: orderDate ? new Date(orderDate).toISOString() : new Date().toISOString(),
+      customer: {
+        name: customerName.trim() || 'คุณลูกค้า (ตัวอย่างใบเสร็จ)',
+        phone: customerPhone.trim() || '081-123-4567',
+        address: customerAddress.trim() || 'ที่อยู่จัดส่งสำหรับออกใบเสร็จ',
+      },
+      items: previewItems,
+      totalWeightKg: grandTotalWeight > 0 ? grandTotalWeight : 10,
+      subtotalAmount: itemsSubtotalAmount > 0 ? itemsSubtotalAmount : 1600,
+      hasVat,
+      vatRate: hasVat ? 7 : undefined,
+      vatAmount: hasVat ? vatAmount : undefined,
+      totalAmount: grandTotalAmount > 0 ? grandTotalAmount : 1600,
+      shippingFee: parsedShippingFee > 0 ? parsedShippingFee : undefined,
+      boxCount: Math.max(parsedBoxCount || 1, cleanedTrackings.length || 1),
+      paymentStatus,
+      deliveryStatus,
+      stockSource,
+      courierName: courierName || 'Flash Express',
+      trackingNumber: cleanedTrackings.join(', '),
+      trackingNumbers: cleanedTrackings,
+      note: note.trim(),
+      taxInvoice: {
+        isRequested: requestTaxInvoice,
+        companyName: taxCompanyName.trim() || customerName.trim(),
+        taxId: taxId.trim(),
+        branch: taxBranch.trim(),
+        address: taxAddress.trim() || customerAddress.trim(),
+      },
+      receiptNumber: finalReceiptNumber,
+      receiptDate: receiptDate ? new Date(receiptDate).toISOString() : new Date().toISOString(),
+    };
+
+    setDraftReceiptOrder(draftPO);
+    setIsDraftReceiptOpen(true);
   };
 
   return (
@@ -474,15 +585,26 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
               <span>{editingOrder ? 'แก้ไขใบสั่งซื้อ' : 'คีย์ข้อมูลใบสั่งซื้อใหม่'}</span>
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              กรอกข้อมูลลูกค้า รายการสินค้า ราคา และจำนวน (กก.)
+              กรอกข้อมูลลูกค้า รายการสินค้า ราคา จำนวน และออกใบเสร็จรับเงิน
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handlePreviewReceipt}
+              className="px-2.5 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-400/40 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors"
+              title="ดูตัวอย่าง / ออกใบเสร็จรับเงิน"
+            >
+              <Receipt className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="hidden sm:inline">ออกใบเสร็จ</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Form Body */}
@@ -1254,8 +1376,19 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
             </div>
           </div>
 
-          {/* SECTION 5: DATE & PO NUMBER & STATUS & NOTE */}
+          {/* SECTION 4: DATE & PO NUMBER & STATUS & SHIPPING / TRACKING */}
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+            <div className="flex items-center justify-between pb-1 border-b border-slate-200">
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                <Truck className="w-4 h-4 text-amber-600" />
+                <span>4. ข้อมูลการจัดส่ง, เลขพัสดุ (Flash Express) & สถานะออเดอร์</span>
+              </h3>
+              <span className="text-[11px] font-bold text-amber-900 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <Package className="w-3 h-3 text-amber-700" />
+                <span>รองรับแยกหลายกล่อง</span>
+              </span>
+            </div>
+
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-200 pb-3">
               <div>
                 <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
@@ -1607,25 +1740,143 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
             </div>
           </div>
 
+          {/* SECTION 5: RECEIPT ISSUANCE (การออกใบเสร็จรับเงิน) */}
+          <div className="bg-emerald-50/70 p-4 rounded-xl border border-emerald-300 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-200/80 pb-2.5">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                  <Receipt className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-emerald-950 uppercase tracking-wider flex items-center gap-1.5">
+                    <span>5. ข้อมูลการออกใบเสร็จรับเงิน (Receipt Issuance)</span>
+                    <span className="text-[10px] font-extrabold bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full">
+                      ✓ พร้อมออกใบเสร็จ
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-emerald-800 mt-0.5">
+                    สามารถกำหนดเลขที่ใบเสร็จ วันที่ และกดดูตัวอย่างพิมพ์หรือบันทึกพร้อมออกใบเสร็จได้ทันที
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handlePreviewReceipt}
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1.5"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>ดูตัวอย่าง / พิมพ์ใบเสร็จ</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <Hash className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>เลขที่ใบเสร็จรับเงิน (Receipt No.)</span>
+                  </span>
+                  <span className="text-[10px] text-emerald-700 font-bold bg-emerald-100 px-1.5 py-0.5 rounded">
+                    รหัสเริ่มต้น RC-
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  value={receiptNumber || generateReceiptNumber(calculatedPoNumber)}
+                  onChange={(e) => setReceiptNumber(e.target.value)}
+                  placeholder={`เช่น ${generateReceiptNumber(calculatedPoNumber)}`}
+                  className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none uppercase"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>วันที่ออกใบเสร็จรับเงิน</span>
+                </label>
+                <input
+                  type="date"
+                  value={receiptDate ? receiptDate.slice(0, 10) : orderDate.slice(0, 10)}
+                  onChange={(e) => setReceiptDate(e.target.value)}
+                  className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-emerald-200/60 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-600">สถานะชำระเงิน:</span>
+                <span className={`px-2.5 py-0.5 rounded-full font-bold text-[11px] border ${
+                  paymentStatus === 'paid'
+                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                    : paymentStatus === 'cod'
+                    ? 'bg-amber-100 text-amber-800 border-amber-300'
+                    : 'bg-rose-100 text-rose-800 border-rose-300'
+                }`}>
+                  {paymentStatus === 'paid'
+                    ? '✓ ชำระเงินเรียบร้อย (ออกใบเสร็จสมบูรณ์)'
+                    : paymentStatus === 'cod'
+                    ? '⚠️ เก็บเงินปลายทาง (COD)'
+                    : '⏳ รอชำระเงิน'}
+                </span>
+              </div>
+
+              <div className="text-[11px] text-slate-600 font-medium">
+                ยอดเงินที่จะแสดงในใบเสร็จ:{' '}
+                <span className="text-slate-950 text-xs font-black bg-emerald-100/90 px-2 py-0.5 rounded border border-emerald-300">
+                  {formatCurrency(grandTotalAmount)}
+                </span>
+              </div>
+            </div>
+          </div>
+
           {/* Action Buttons */}
-          <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-3">
+          <div className="pt-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
             <button
               type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+              onClick={handlePreviewReceipt}
+              className="px-3.5 py-2 text-xs font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl transition-all shadow-2xs flex items-center gap-1.5"
             >
-              ยกเลิก
+              <Printer className="w-3.5 h-3.5 text-slate-500" />
+              <span>ดูตัวอย่างใบเสร็จ</span>
             </button>
-            <button
-              type="submit"
-              className="px-6 py-2.5 text-sm font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-xl shadow-md shadow-emerald-950/20 transition-all hover:scale-[1.01] active:scale-[0.99] flex items-center gap-2"
-            >
-              <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
-              <span>{editingOrder ? 'บันทึกการแก้ไข' : 'บันทึกใบสั่งซื้อ'}</span>
-            </button>
+
+            <div className="flex items-center gap-2 ml-auto">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                className="px-4 py-2 text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-200 hover:bg-slate-300 rounded-xl transition-colors"
+              >
+                <span>{editingOrder ? 'บันทึกการแก้ไข' : 'บันทึกใบสั่งซื้อ'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveAndIssueReceipt}
+                className="px-5 py-2 text-xs sm:text-sm font-black text-slate-950 bg-gradient-to-r from-emerald-400 to-teal-300 hover:from-emerald-300 hover:to-teal-200 rounded-xl shadow-md shadow-emerald-950/20 transition-all hover:scale-[1.01] active:scale-[0.99] flex items-center gap-2 border border-emerald-400"
+              >
+                <Receipt className="w-4 h-4 stroke-[2.5]" />
+                <span>บันทึกและออกใบเสร็จรับเงิน</span>
+              </button>
+            </div>
           </div>
 
         </form>
+
+        {/* Live Draft Receipt Modal (Preview from inside form) */}
+        <ReceiptModal
+          isOpen={isDraftReceiptOpen}
+          order={draftReceiptOrder}
+          initialDocType="receipt"
+          onClose={() => setIsDraftReceiptOpen(false)}
+        />
 
       </div>
     </div>

@@ -1,11 +1,34 @@
-import { PurchaseOrder } from '../types';
-import { formatCurrency, formatWeight, formatThaiDateTime } from './formatters';
+import { PurchaseOrder, DocumentType } from '../types';
+import { formatCurrency, formatWeight, formatThaiDateTime, generateReceiptNumber, thaiBahtText } from './formatters';
 import { getAllTrackingNumbers } from './trackingUtils';
 
 /**
- * Generate full HTML document string for Purchase Order Receipt
+ * Generate full HTML document string for Receipt / Purchase Order / Tax Invoice
  */
-export function getReceiptHtml(order: PurchaseOrder): string {
+export function getReceiptHtml(order: PurchaseOrder, docType: DocumentType = 'receipt'): string {
+  const isReceipt = docType === 'receipt';
+  const isTaxInvoice = docType === 'tax_invoice' || (docType === 'receipt' && order.taxInvoice?.isRequested);
+
+  const docTitleThai = isTaxInvoice
+    ? 'ใบเสร็จรับเงิน / ใบกำกับภาษี'
+    : isReceipt
+    ? 'ใบเสร็จรับเงิน (RECEIPT)'
+    : 'ใบสั่งซื้อ (PURCHASE ORDER)';
+
+  const docBadgeTitle = isTaxInvoice
+    ? 'ใบเสร็จรับเงิน / ใบกำกับภาษี'
+    : isReceipt
+    ? 'ใบเสร็จรับเงิน'
+    : 'ใบสั่งซื้อ PO';
+
+  const docNumber = isReceipt || isTaxInvoice
+    ? (order.receiptNumber || generateReceiptNumber(order.orderNumber))
+    : `#${order.orderNumber}`;
+
+  const docDate = isReceipt || isTaxInvoice
+    ? (order.receiptDate ? formatThaiDateTime(order.receiptDate) : formatThaiDateTime(order.createdAt))
+    : formatThaiDateTime(order.createdAt);
+
   const itemsRows = order.items
     .map(
       (item, idx) => {
@@ -34,7 +57,7 @@ export function getReceiptHtml(order: PurchaseOrder): string {
 
   const paymentStatusThai =
     order.paymentStatus === 'paid'
-      ? 'ชำระเงินเรียบร้อย'
+      ? 'ชำระเงินเรียบร้อยแล้ว'
       : order.paymentStatus === 'cod'
       ? 'เก็บเงินปลายทาง (COD)'
       : 'รอชำระเงิน';
@@ -46,12 +69,14 @@ export function getReceiptHtml(order: PurchaseOrder): string {
       ? 'กำลังจัดส่ง'
       : 'รอดำเนินการ';
 
+  const bahtText = thaiBahtText(order.totalAmount);
+
   return `
     <!DOCTYPE html>
     <html lang="th">
     <head>
       <meta charset="UTF-8">
-      <title>ใบสั่งซื้อ ${order.orderNumber} - บริษัท สุมาลี ฟู๊ด สระบุรี จำกัด</title>
+      <title>${docTitleThai} ${docNumber} - บริษัท สุมาลี ฟู๊ด สระบุรี จำกัด</title>
       <style>
         @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap');
         
@@ -106,29 +131,36 @@ export function getReceiptHtml(order: PurchaseOrder): string {
           margin-top: 2px;
         }
         .po-badge-box {
-          background-color: #f8fafc;
-          border: 1px solid #cbd5e1;
+          background-color: ${isReceipt || isTaxInvoice ? '#f0fdf4' : '#f8fafc'};
+          border: 1.5px solid ${isReceipt || isTaxInvoice ? '#86efac' : '#cbd5e1'};
           border-radius: 8px;
           padding: 10px 16px;
           text-align: right;
+          min-width: 220px;
         }
         .po-title {
-          font-size: 10px;
-          font-weight: 700;
-          color: #64748b;
+          font-size: 11px;
+          font-weight: 800;
+          color: ${isReceipt || isTaxInvoice ? '#166534' : '#64748b'};
           text-transform: uppercase;
-          letter-spacing: 1px;
+          letter-spacing: 0.5px;
         }
         .po-number {
           font-size: 18px;
-          font-weight: 800;
-          color: #1d4ed8;
+          font-weight: 900;
+          color: ${isReceipt || isTaxInvoice ? '#047857' : '#1d4ed8'};
+          font-family: monospace;
+          margin-top: 2px;
+        }
+        .po-ref {
+          font-size: 10px;
+          color: #64748b;
           font-family: monospace;
           margin-top: 2px;
         }
         .po-date {
           font-size: 11px;
-          color: #64748b;
+          color: #475569;
           margin-top: 4px;
         }
         .customer-grid {
@@ -202,6 +234,18 @@ export function getReceiptHtml(order: PurchaseOrder): string {
           font-weight: 800;
           color: #6ee7b7;
         }
+        .baht-text-box {
+          background-color: #f8fafc;
+          border: 1px dashed #cbd5e1;
+          border-radius: 6px;
+          padding: 8px 14px;
+          margin-bottom: 24px;
+          font-size: 12px;
+          color: #334155;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
         .signatures {
           display: flex;
           justify-content: space-between;
@@ -243,9 +287,10 @@ export function getReceiptHtml(order: PurchaseOrder): string {
             <div class="company-phone">โทร. 0811238415 (081-123-8415)</div>
           </div>
           <div class="po-badge-box">
-            <div class="po-title">ใบสั่งซื้อ PO</div>
-            <div class="po-number">#${order.orderNumber}</div>
-            <div class="po-date">วันที่: ${formatThaiDateTime(order.createdAt)}</div>
+            <div class="po-title">${docBadgeTitle}</div>
+            <div class="po-number">${docNumber}</div>
+            ${isReceipt || isTaxInvoice ? `<div class="po-ref">อ้างอิง PO #${order.orderNumber}</div>` : ''}
+            <div class="po-date">วันที่: ${docDate}</div>
           </div>
         </div>
 
@@ -345,16 +390,22 @@ export function getReceiptHtml(order: PurchaseOrder): string {
           </div>
         </div>
 
+        <!-- BAHT TEXT -->
+        <div class="baht-text-box">
+          <div><strong style="color: #0f172a;">จำนวนเงินตัวอักษร:</strong> <span style="font-weight: 700; color: #047857;">(${bahtText})</span></div>
+          <div style="font-size: 11px; color: #64748b;">สถานะ: <strong style="color: #047857;">${paymentStatusThai}</strong></div>
+        </div>
+
         <!-- SIGNATURES -->
         <div class="signatures">
           <div class="sig-block">
             <div class="sig-line"></div>
-            <div>ผู้สั่งซื้อ / Customer Signature</div>
+            <div>${isReceipt || isTaxInvoice ? 'ผู้ชำระเงิน / Customer (Payer)' : 'ผู้สั่งซื้อ / Customer Signature'}</div>
             <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">วันที่ _____/_____/_________</div>
           </div>
           <div class="sig-block">
             <div class="sig-line"></div>
-            <div>ผู้รับเงิน / Authorized Signature</div>
+            <div>${isReceipt || isTaxInvoice ? 'ผู้รับเงิน / Cashier (Authorized Collector)' : 'ผู้รับคำสั่งซื้อ / Authorized Signature'}</div>
             <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">วันที่ _____/_____/_________</div>
           </div>
         </div>

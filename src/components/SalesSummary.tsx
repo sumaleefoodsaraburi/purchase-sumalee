@@ -38,8 +38,10 @@ import {
   Repeat,
   UserPlus,
   Truck,
+  Receipt,
 } from 'lucide-react';
 import { getAllCustomerStats } from '../utils/customerAnalytics';
+import { getAllTrackingNumbers } from '../utils/trackingUtils';
 
 import {
   ResponsiveContainer,
@@ -551,12 +553,24 @@ export const SalesSummary: React.FC<SalesSummaryProps> = ({
                       <span className="font-mono font-bold text-xs text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">{ord.orderNumber}</span>
                       <span className="text-xs text-slate-900 font-bold">{ord.customer.name}</span>
                       <span className="text-[11px] text-slate-400">({ord.customer.phone})</span>
-                      {ord.trackingNumber && (
-                        <span className="text-[10px] font-mono font-bold bg-amber-50 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded flex items-center gap-1">
-                          <Truck className="w-2.5 h-2.5 text-amber-600" />
-                          <span>{ord.courierName || 'Flash'}: {ord.trackingNumber}</span>
-                        </span>
-                      )}
+                      {(() => {
+                        const trks = getAllTrackingNumbers(ord);
+                        if (trks.length === 0) return null;
+                        if (trks.length === 1) {
+                          return (
+                            <span className="text-[10px] font-mono font-bold bg-amber-50 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded flex items-center gap-1">
+                              <Truck className="w-2.5 h-2.5 text-amber-600" />
+                              <span>{ord.courierName || 'Flash'}: {trks[0]}</span>
+                            </span>
+                          );
+                        }
+                        return (
+                          <span className="text-[10px] font-mono font-bold bg-amber-100 text-amber-950 border border-amber-300 px-1.5 py-0.5 rounded flex items-center gap-1">
+                            <Truck className="w-2.5 h-2.5 text-amber-600" />
+                            <span>{ord.courierName || 'Flash'} ({trks.length} กล่อง)</span>
+                          </span>
+                        );
+                      })()}
                     </div>
                     <p className="text-xs text-slate-500 mt-0.5 truncate">
                       {ord.items.map(i => `${i.productName} (${i.weightKg}กก.)`).join(', ')}
@@ -586,19 +600,20 @@ export const SalesSummary: React.FC<SalesSummaryProps> = ({
                       {onViewReceipt && (
                         <button
                           onClick={() => onViewReceipt(ord)}
-                          title="ใบเสร็จ/พิมพ์"
-                          className="p-1.5 bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 rounded-lg border border-slate-200 transition-colors"
+                          title="ออก / พิมพ์ใบเสร็จรับเงิน"
+                          className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg border border-emerald-300 transition-colors"
                         >
-                          <Printer className="w-3.5 h-3.5" />
+                          <Receipt className="w-3.5 h-3.5 text-emerald-700" />
                         </button>
                       )}
                       {onEditOrder && (
                         <button
                           onClick={() => onEditOrder(ord)}
-                          title="แก้ไขออเดอร์"
-                          className="p-1.5 bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-700 rounded-lg border border-slate-200 transition-colors"
+                          title="แก้ไขออเดอร์ (ข้อมูลลูกค้า สินค้า และเลขพัสดุ)"
+                          className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-lg border border-amber-300 font-bold text-xs flex items-center gap-1 transition-colors shadow-2xs"
                         >
-                          <Edit2 className="w-3.5 h-3.5" />
+                          <Edit2 className="w-3.5 h-3.5 text-amber-700" />
+                          <span>แก้ไข</span>
                         </button>
                       )}
                       {onDeleteOrder && (

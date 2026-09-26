@@ -413,4 +413,104 @@ export function generatePoNumber(
   return `${datePrefix}-${seqPadded}`;
 }
 
+/**
+ * Generate Receipt Number in RC-YYYYMMDD-XXX format from orderNumber
+ * Example: RC-20260802-001
+ */
+export function generateReceiptNumber(orderNumber: string): string {
+  if (!orderNumber) {
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+    return `RC-${dateStr}-001`;
+  }
+  const clean = orderNumber.replace(/^PO-?/i, '');
+  return `RC-${clean}`;
+}
+
+/**
+ * Convert Thai currency number to Thai Baht text (e.g. 1500 -> หนึ่งพันห้าร้อยบาทถ้วน)
+ */
+export function thaiBahtText(amount: number): string {
+  if (isNaN(amount) || amount === 0) return 'ศูนย์บาทถ้วน';
+
+  const isNegative = amount < 0;
+  const absAmount = Math.abs(amount);
+
+  // Round to 2 decimal places
+  const rounded = Math.round(absAmount * 100) / 100;
+  const [intPartStr, decPartStr = '00'] = rounded.toFixed(2).split('.');
+
+  const digitWords = ['ศูนย์', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า'];
+  const posWords = ['', 'สิบ', 'ร้อย', 'พัน', 'หมื่น', 'แสน'];
+
+  function convertGroup(groupStr: string): string {
+    let result = '';
+    const len = groupStr.length;
+    for (let i = 0; i < len; i++) {
+      const digit = parseInt(groupStr[i], 10);
+      const pos = len - 1 - i;
+      if (digit === 0) continue;
+
+      if (pos === 1) {
+        // tens
+        if (digit === 1) {
+          result += 'สิบ';
+        } else if (digit === 2) {
+          result += 'ยี่สิบ';
+        } else {
+          result += digitWords[digit] + 'สิบ';
+        }
+      } else if (pos === 0) {
+        // units
+        if (digit === 1 && len > 1 && parseInt(groupStr[len - 2], 10) > 0) {
+          result += 'เอ็ด';
+        } else {
+          result += digitWords[digit];
+        }
+      } else {
+        result += digitWords[digit] + posWords[pos];
+      }
+    }
+    return result;
+  }
+
+  function convertInteger(intStr: string): string {
+    if (intStr === '0' || intStr === '') return '';
+    let result = '';
+    let remaining = intStr;
+
+    while (remaining.length > 0) {
+      const chunkLen = remaining.length % 6 || 6;
+      const chunk = remaining.slice(0, chunkLen);
+      remaining = remaining.slice(chunkLen);
+
+      const chunkText = convertGroup(chunk);
+      if (chunkText) {
+        result += chunkText + (remaining.length > 0 ? 'ล้าน' : '');
+      }
+    }
+    return result;
+  }
+
+  let bahtStr = '';
+  const intVal = parseInt(intPartStr, 10);
+  if (intVal === 0 && decPartStr !== '00') {
+    // only satang
+    bahtStr = '';
+  } else {
+    bahtStr = convertInteger(intPartStr) + 'บาท';
+  }
+
+  let satangStr = '';
+  const satangVal = parseInt(decPartStr, 10);
+  if (satangVal === 0) {
+    satangStr = 'ถ้วน';
+  } else {
+    satangStr = convertGroup(decPartStr) + 'สตางค์';
+  }
+
+  return (isNegative ? 'ลบ' : '') + bahtStr + satangStr;
+}
+
+
 
