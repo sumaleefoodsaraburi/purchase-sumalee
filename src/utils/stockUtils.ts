@@ -210,7 +210,7 @@ export function isStockTrackedProduct(name: string): boolean {
  * Sample Initial Stock Production Entries with factory & online source separation.
  * Factory baseline sets:
  * - หอมเจียวยางแดง: 225 กก
- * - หอมเจียวยางเขียว: 520 กก
+ * - หอมเจียวยางเขียว: 2200 กก
  * - หอมเจียวหนา (หอมเจียวC): 165 กก
  * - กระเทียมสูตรD: 1890 กก
  * - กระเทียมสูตรB: 960 กก
@@ -220,6 +220,28 @@ export function getSampleStockEntries(): StockEntry[] {
   const baseDate = '2026-09-08';
 
   return [
+    {
+      id: 'stk-baseline-factory-20261001',
+      dateKey: '2026-10-01',
+      shift: 'day',
+      shiftLabel: 'ยอดยกมาเริ่มต้น (พร้อมขาย)',
+      stockSource: 'factory',
+      recordedBy: 'ปรับสต็อคโรงงาน (นับจริง)',
+      note: 'ปรับยอดสต็อคโรงงาน (นับจริง): ยางเขียว 2,200 กก., ยางแดง 1,223.7 กก., กระเทียมB 1,210 กก., กระเทียมA 451 กก.',
+      totalWeightKg: 5084.7,
+      createdAt: '2026-10-01T00:00:00.000Z',
+      items: [
+        { id: 'f-1', productName: 'หอมเจียวยางแดง 5กก (รหัส OF01)', weightKg: 1223.7 },
+        { id: 'f-2', productName: 'หอมเจียวยางเขียว 5กก (รหัส OF02)', weightKg: 2200 },
+        { id: 'f-3', productName: 'หอมเจียวC 5กก (รหัส OF03)', weightKg: 0 },
+        { id: 'f-4', productName: 'กระเทียมเจียวD สูตร40 (รหัส FG01)', weightKg: 0 },
+        { id: 'f-5', productName: 'กระเทียมเจียวB สูตร80 (รหัส FG04)', weightKg: 1210 },
+        { id: 'f-6', productName: 'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)', weightKg: 0 },
+        { id: 'f-7', productName: 'หอมเจียวยางเขียว 100กรัม (รหัส OF02.02)', weightKg: 0 },
+        { id: 'f-8', productName: 'กระเทียมเจียวC สูตร60 (รหัส FG03)', weightKg: 0 },
+        { id: 'f-9', productName: 'กระเทียมเจียวA สูตร100 (รหัส FG06)', weightKg: 451 },
+      ],
+    },
     {
       id: 'stk-baseline-factory-20260908',
       dateKey: baseDate,
@@ -274,6 +296,17 @@ export function loadStockEntriesFromLocalStorage(): StockEntry[] {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
+        // Ensure stk-baseline-factory-20261001 is included
+        const hasLatestBaseline = parsed.some((e: StockEntry) => e.id === 'stk-baseline-factory-20261001');
+        if (!hasLatestBaseline) {
+          const sample = getSampleStockEntries();
+          const latest = sample.find((e) => e.id === 'stk-baseline-factory-20261001');
+          if (latest) {
+            const updatedList = [latest, ...parsed];
+            saveStockEntriesToLocalStorage(updatedList);
+            return updatedList;
+          }
+        }
         return parsed;
       }
     }
@@ -323,64 +356,73 @@ export function calculateDailyStockSummary(
 
   // Set of all unique product names across presets, stock entries, and orders
   const allProductNamesSet = new Set<string>(FACTORY_STOCK_PRESET_NAMES);
+  const orderedProductNames = [...FACTORY_STOCK_PRESET_NAMES];
 
-  // 1. Calculate PRIOR cumulative stock entries (Cutoff date <= entry.dateKey <= target dateKey for baseline, or < target dateKey for shifts)
-  const priorProducedMap: Record<string, number> = {};
+  // 1. Calculate PRIOR cumulative stock entries & sales using the latest baseline on or before target dateKey
+  const priorRemainingMap: Record<string, number> = {};
 
-  stockEntries.forEach((entry) => {
-    if (matchStockSource(entry.stockSource)) {
-      const cutoff = entry.stockSource === 'online' ? ONLINE_STOCK_CUTOFF_DATE : FACTORY_STOCK_CUTOFF_DATE;
-      const isBaseline = isBaselineStockEntry(entry);
+  orderedProductNames.forEach((pName) => {
+    // Find all baseline entries on or before target dateKey for this product
+    const baselines = stockEntries
+      .filter((e) => matchStockSource(e.stockSource) && isBaselineStockEntry(e) && e.dateKey && e.dateKey <= dateKey)
+      .sort((a, b) => b.dateKey.localeCompare(a.dateKey));
 
-      entry.items.forEach((item) => {
-        const pName = normalizeProductName(item.productName);
-        if (pName) {
-          allProductNamesSet.add(pName);
-          const w = Number(item.weightKg) || 0;
-          if (entry.dateKey && entry.dateKey >= cutoff) {
-            if (isBaseline) {
-              // Baseline entry serves as opening balance on entry.dateKey and all subsequent dates
-              if (entry.dateKey <= dateKey) {
-                priorProducedMap[pName] = (priorProducedMap[pName] || 0) + w;
-              }
-            } else {
-              // Regular production shifts prior to target dateKey
-              if (entry.dateKey < dateKey) {
-                priorProducedMap[pName] = (priorProducedMap[pName] || 0) + w;
-              }
-            }
-          }
-        }
-      });
+    const latestBaseline = baselines.find((e) =>
+      e.items.some((it) => normalizeProductName(it.productName) === pName)
+    );
+
+    let baselineWeight = 0;
+    let baseDateKey = stockSourceFilter === 'online' ? ONLINE_STOCK_CUTOFF_DATE : FACTORY_STOCK_CUTOFF_DATE;
+
+    if (latestBaseline) {
+      baseDateKey = latestBaseline.dateKey;
+      const bItem = latestBaseline.items.find((it) => normalizeProductName(it.productName) === pName);
+      if (bItem) {
+        baselineWeight = Number(bItem.weightKg) || 0;
+      }
     }
-  });
 
-  // 2. Calculate PRIOR cumulative order sales (Cutoff date <= order dateKey < target dateKey)
-  const priorSoldMap: Record<string, number> = {};
-
-  orders.forEach((order) => {
-    if (order.deliveryStatus === 'cancelled') return;
-    if (!matchOrderSource(order.stockSource)) return;
-
-    const cutoff = order.stockSource === 'online' ? ONLINE_STOCK_CUTOFF_DATE : FACTORY_STOCK_CUTOFF_DATE;
-
-    const d = new Date(order.createdAt);
-    if (isNaN(d.getTime())) return;
-
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const oDateKey = `${y}-${m}-${day}`;
-
-    order.items.forEach((item) => {
-      const pName = normalizeProductName(item.productName);
-      if (pName) {
-        allProductNamesSet.add(pName);
-        if (oDateKey >= cutoff && oDateKey < dateKey) {
-          priorSoldMap[pName] = (priorSoldMap[pName] || 0) + (Number(item.weightKg) || 0);
+    // Sum shifts after baseDateKey and strictly before target dateKey
+    let shiftsAfterBaseline = 0;
+    stockEntries.forEach((entry) => {
+      if (matchStockSource(entry.stockSource) && !isBaselineStockEntry(entry)) {
+        if (entry.dateKey && entry.dateKey > baseDateKey && entry.dateKey < dateKey) {
+          entry.items.forEach((item) => {
+            if (normalizeProductName(item.productName) === pName) {
+              shiftsAfterBaseline += Number(item.weightKg) || 0;
+            }
+          });
         }
       }
     });
+
+    // Sum orders on or after baseDateKey and strictly before target dateKey
+    let ordersAfterBaseline = 0;
+    orders.forEach((order) => {
+      if (order.deliveryStatus === 'cancelled') return;
+      if (!matchOrderSource(order.stockSource)) return;
+
+      const d = new Date(order.createdAt);
+      if (isNaN(d.getTime())) return;
+
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const oDateKey = `${y}-${m}-${day}`;
+
+      if (oDateKey >= baseDateKey && oDateKey < dateKey) {
+        order.items.forEach((item) => {
+          if (normalizeProductName(item.productName) === pName) {
+            ordersAfterBaseline += Number(item.weightKg) || 0;
+          }
+        });
+      }
+    });
+
+    priorRemainingMap[pName] = Math.max(
+      0,
+      Math.round((baselineWeight + shiftsAfterBaseline - ordersAfterBaseline) * 100) / 100
+    );
   });
 
   // 3. TODAY'S stock entries (dateKey === target dateKey)
@@ -474,13 +516,8 @@ export function calculateDailyStockSummary(
   let totalAvailableKg = 0;
   let totalSoldKg = 0;
 
-  // Strict list of the 9 preset products (หอมเจียว 5 รายการ + กระเทียมเจียว 4 รายการ)
-  const orderedProductNames = [...FACTORY_STOCK_PRESET_NAMES];
-
   const productBreakdown = orderedProductNames.map((pName) => {
-    const pPriorProd = priorProducedMap[pName] || 0;
-    const pPriorSold = priorSoldMap[pName] || 0;
-    const pPriorRemaining = Math.max(0, Math.round((pPriorProd - pPriorSold) * 100) / 100);
+    const pPriorRemaining = priorRemainingMap[pName] || 0;
 
     const prod = producedProductMap[pName] || { dayKg: 0, nightKg: 0, totalKg: 0 };
     const pTodayProduced = Math.round(prod.totalKg * 100) / 100;
@@ -556,22 +593,42 @@ export function getRealtimeAvailableStock(
 
   const cutoff = stockSource === 'online' ? ONLINE_STOCK_CUTOFF_DATE : FACTORY_STOCK_CUTOFF_DATE;
 
-  // 1. Total produced in stock entries for stockSource (>= cutoff)
-  let totalProducedKg = 0;
+  // Find latest baseline for this product and stockSource
+  const baselines = stockEntries
+    .filter((e) => (e.stockSource || 'factory') === stockSource && isBaselineStockEntry(e) && e.dateKey)
+    .sort((a, b) => b.dateKey.localeCompare(a.dateKey));
+
+  const latestBaseline = baselines.find((e) =>
+    e.items.some((it) => normalizeProductName(it.productName) === normName)
+  );
+
+  let baselineWeight = 0;
+  let baseDateKey = cutoff;
+
+  if (latestBaseline) {
+    baseDateKey = latestBaseline.dateKey;
+    const bItem = latestBaseline.items.find((it) => normalizeProductName(it.productName) === normName);
+    if (bItem) {
+      baselineWeight = Number(bItem.weightKg) || 0;
+    }
+  }
+
+  // 1. Total produced in regular shifts after baseDateKey
+  let shiftsAfterKg = 0;
   stockEntries.forEach((entry) => {
     const actualSource = entry.stockSource || 'factory';
-    if (actualSource === stockSource) {
-      if (!entry.dateKey || entry.dateKey >= cutoff) {
+    if (actualSource === stockSource && !isBaselineStockEntry(entry)) {
+      if (!entry.dateKey || entry.dateKey > baseDateKey) {
         entry.items.forEach((item) => {
           if (normalizeProductName(item.productName) === normName) {
-            totalProducedKg += Number(item.weightKg) || 0;
+            shiftsAfterKg += Number(item.weightKg) || 0;
           }
         });
       }
     }
   });
 
-  // 2. Total sold in orders for stockSource (non-cancelled, >= cutoff, and excluding excludeOrderId)
+  // 2. Total sold in orders on or after baseDateKey (non-cancelled, excluding excludeOrderId)
   let totalSoldKg = 0;
   orders.forEach((order) => {
     if (order.deliveryStatus === 'cancelled') return;
@@ -584,7 +641,7 @@ export function getRealtimeAvailableStock(
         const m = String(d.getMonth() + 1).padStart(2, '0');
         const day = String(d.getDate()).padStart(2, '0');
         const oDateKey = `${y}-${m}-${day}`;
-        if (oDateKey < cutoff) return;
+        if (oDateKey < baseDateKey) return;
       }
       order.items.forEach((item) => {
         if (normalizeProductName(item.productName) === normName) {
@@ -594,11 +651,12 @@ export function getRealtimeAvailableStock(
     }
   });
 
+  const totalProducedKg = Math.round((baselineWeight + shiftsAfterKg) * 100) / 100;
   const availableKg = Math.round((totalProducedKg - totalSoldKg) * 100) / 100;
 
   return {
     availableKg,
-    totalProducedKg: Math.round(totalProducedKg * 100) / 100,
+    totalProducedKg,
     totalSoldKg: Math.round(totalSoldKg * 100) / 100,
   };
 }

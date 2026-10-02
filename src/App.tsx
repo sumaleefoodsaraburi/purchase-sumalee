@@ -11,6 +11,7 @@ import {
   saveStockEntryToFirestore,
   deleteStockEntryFromFirestore,
   seedInitialStockEntriesIfEmpty,
+  FACTORY_BASELINE_ENTRY_ID,
 } from './services/firebaseService';
 import {
   loadStockEntriesFromLocalStorage,

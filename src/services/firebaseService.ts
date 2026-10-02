@@ -143,7 +143,8 @@ export async function syncAllStockEntriesToFirestore(stockList: StockEntry[]): P
   }
 }
 
-export const FACTORY_BASELINE_ENTRY_ID = 'stk-baseline-factory-20260908';
+export const FACTORY_BASELINE_ENTRY_ID = 'stk-baseline-factory-20261001';
+export const FACTORY_INITIAL_BASELINE_ID = 'stk-baseline-factory-20260908';
 
 /**
  * Seed initial sample stock entries into Firestore if collection is empty or lacks factory baseline
@@ -152,16 +153,18 @@ export async function seedInitialStockEntriesIfEmpty(defaultStock: StockEntry[])
   try {
     const colRef = collection(db, STOCK_COLLECTION_NAME);
     const snapshot = await getDocs(colRef);
-    const hasBaseline = snapshot.docs.some((d) => d.id === FACTORY_BASELINE_ENTRY_ID);
 
     if (snapshot.empty) {
       console.log(`Seeding initial stock entries to Firestore (${defaultStock.length} entries)...`);
       await syncAllStockEntriesToFirestore(defaultStock);
-    } else if (!hasBaseline) {
-      console.log(`Adding new factory baseline entry to Firestore (${FACTORY_BASELINE_ENTRY_ID})...`);
-      const baselineFactory = defaultStock.find((e) => e.id === FACTORY_BASELINE_ENTRY_ID);
-      if (baselineFactory) {
-        await saveStockEntryToFirestore(baselineFactory);
+    } else {
+      const hasLatestBaseline = snapshot.docs.some((d) => d.id === FACTORY_BASELINE_ENTRY_ID);
+      if (!hasLatestBaseline) {
+        console.log(`Adding new factory baseline entry to Firestore (${FACTORY_BASELINE_ENTRY_ID})...`);
+        const baselineFactory = defaultStock.find((e) => e.id === FACTORY_BASELINE_ENTRY_ID);
+        if (baselineFactory) {
+          await saveStockEntryToFirestore(baselineFactory);
+        }
       }
     }
   } catch (err) {
