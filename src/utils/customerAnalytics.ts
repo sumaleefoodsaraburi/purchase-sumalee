@@ -99,7 +99,7 @@ export function getAllCustomerStats(
     const productMap: Record<string, { productName: string; packSize?: string; totalWeightKg: number; totalAmount: number; ordersCount: number }> = {};
     orders.forEach((o) => {
       (o.items || []).forEach((it) => {
-        const pack = it.packSize || (it.productName.includes('100') ? '100g' : it.productName.includes('500') ? '500g' : it.productName.includes('5กก') ? '5kg' : '1kg');
+        const pack = it.packSize || (it.productName.includes('28') ? '28g' : it.productName.includes('100') ? '100g' : it.productName.includes('500') ? '500g' : it.productName.includes('10กก') || it.productName.includes('10 กก') || it.productName.includes('10kg') ? '10kg' : it.productName.includes('5กก') ? '5kg' : '1kg');
         const pKey = `${it.productName.trim()}__${pack}`;
         if (!productMap[pKey]) {
           productMap[pKey] = {
@@ -617,10 +617,14 @@ export function getCustomerDataForMonth(customer: CustomerStat, monthKey?: strin
     (o.items || []).forEach((it) => {
       const pack =
         it.packSize ||
-        (it.productName.includes('100')
+        (it.productName.includes('28')
+          ? '28g'
+          : it.productName.includes('100')
           ? '100g'
           : it.productName.includes('500')
           ? '500g'
+          : it.productName.includes('10กก') || it.productName.includes('10 กก') || it.productName.includes('10kg')
+          ? '10kg'
           : it.productName.includes('5กก')
           ? '5kg'
           : '1kg');

@@ -222,12 +222,16 @@ export const OrderList: React.FC<OrderListProps> = ({
       if (o.items && o.items.length > 0) {
         o.items.forEach((item, index) => {
           const packLabel =
-            item.packSize === '100g'
+            item.packSize === '28g'
+              ? '28 กรัม'
+              : item.packSize === '100g'
               ? '100 กรัม'
               : item.packSize === '500g'
               ? '500 กรัม'
               : item.packSize === '5kg'
               ? '5 กิโลกรัม'
+              : item.packSize === '10kg'
+              ? '10 กิโลกรัม'
               : '1 กิโลกรัม';
 
           const row = [
@@ -619,12 +623,32 @@ export const OrderList: React.FC<OrderListProps> = ({
                         <div key={it.id} className="py-1 flex items-center justify-between gap-2">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="font-semibold text-slate-800">{it.productName}</span>
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
-                              {it.packSize === '100g' ? 'แพ็ค 100g' : it.packSize === '500g' ? 'แพ็ค 500g' : it.packSize === '5kg' ? 'แพ็ค 5kg' : 'แพ็ค 1 กก.'}
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                              it.packSize === '28g'
+                                ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                : it.packSize === '10kg'
+                                ? 'bg-purple-50 text-purple-800 border-purple-200'
+                                : 'bg-slate-100 text-slate-600 border border-slate-200'
+                            }`}>
+                              {it.packSize === '28g'
+                                ? 'แพ็ค 28g (ซอง)'
+                                : it.packSize === '100g'
+                                ? 'แพ็ค 100g'
+                                : it.packSize === '500g'
+                                ? 'แพ็ค 500g'
+                                : it.packSize === '5kg'
+                                ? 'แพ็ค 5kg'
+                                : it.packSize === '10kg'
+                                ? 'แพ็ค 10kg'
+                                : 'แพ็ค 1 กก.'}
                             </span>
                           </div>
                           <span className="text-slate-500 text-[11px] shrink-0">
-                            {formatCurrency(it.pricePerKg)}/กก. × <strong className="text-emerald-700">{it.weightKg} กก.</strong> = <strong className="text-slate-900">{formatCurrency(it.totalPrice)}</strong>
+                            {it.packSize === '28g' ? (
+                              <>{formatCurrency(it.pricePerKg)}/ซอง × <strong className="text-amber-700">{it.quantityPieces || Math.round(it.weightKg / 0.028)} ซอง</strong> ({it.weightKg} กก.) = <strong className="text-slate-900">{formatCurrency(it.totalPrice)}</strong></>
+                            ) : (
+                              <>{formatCurrency(it.pricePerKg)}/กก. × <strong className="text-emerald-700">{it.weightKg} กก.</strong> = <strong className="text-slate-900">{formatCurrency(it.totalPrice)}</strong></>
+                            )}
                           </span>
                         </div>
                       ))}

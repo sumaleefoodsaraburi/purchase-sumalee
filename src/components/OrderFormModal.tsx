@@ -311,21 +311,73 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
   // Handle Item Changes
   const updateItemField = (
     id: string,
-    field: keyof OrderItem,
+    field: keyof OrderItem | 'quantityPieces',
     value: string | number
   ) => {
     setItems((prevItems) =>
       prevItems.map((item) => {
         if (item.id !== id) return item;
 
-        const updated = { ...item, [field]: value };
+        const updated: OrderItem = { ...item };
 
-        if (field === 'pricePerKg' || field === 'weightKg') {
-          const price = field === 'pricePerKg' ? Number(value) || 0 : item.pricePerKg;
-          const weight = field === 'weightKg' ? Number(value) || 0 : item.weightKg;
-          updated.totalPrice = Math.round(price * weight * 100) / 100;
+        if (field === 'packSize') {
+          const newPack = String(value);
+          updated.packSize = newPack;
+          if (newPack === '28g') {
+            const pieces = item.quantityPieces || (item.weightKg > 0 ? Math.round(item.weightKg / 0.028) : 0);
+            updated.quantityPieces = pieces;
+            if (pieces > 0) {
+              updated.weightKg = Math.round(pieces * 0.028 * 1000) / 1000;
+              const unitPrice = Number(item.pricePerKg) || 0;
+              updated.totalPrice = Math.round(unitPrice * pieces * 100) / 100;
+            }
+          } else {
+            const price = Number(item.pricePerKg) || 0;
+            const weight = Number(item.weightKg) || 0;
+            updated.totalPrice = Math.round(price * weight * 100) / 100;
+          }
+          return updated;
         }
 
+        if (field === 'quantityPieces') {
+          const pieces = Number(value) || 0;
+          updated.quantityPieces = pieces;
+          const weight = Math.round(pieces * 0.028 * 1000) / 1000;
+          updated.weightKg = weight;
+          const unitPrice = Number(item.pricePerKg) || 0;
+          updated.totalPrice = Math.round(unitPrice * pieces * 100) / 100;
+          return updated;
+        }
+
+        if (field === 'pricePerKg') {
+          const price = Number(value) || 0;
+          updated.pricePerKg = price;
+          if (item.packSize === '28g') {
+            const pieces = item.quantityPieces || (item.weightKg > 0 ? Math.round(item.weightKg / 0.028) : 0);
+            updated.totalPrice = Math.round(price * pieces * 100) / 100;
+          } else {
+            const weight = Number(item.weightKg) || 0;
+            updated.totalPrice = Math.round(price * weight * 100) / 100;
+          }
+          return updated;
+        }
+
+        if (field === 'weightKg') {
+          const weight = Number(value) || 0;
+          updated.weightKg = weight;
+          if (item.packSize === '28g') {
+            const pieces = Math.round(weight / 0.028);
+            updated.quantityPieces = pieces;
+            const price = Number(item.pricePerKg) || 0;
+            updated.totalPrice = Math.round(price * pieces * 100) / 100;
+          } else {
+            const price = Number(item.pricePerKg) || 0;
+            updated.totalPrice = Math.round(price * weight * 100) / 100;
+          }
+          return updated;
+        }
+
+        (updated as any)[field] = value;
         return updated;
       })
     );
@@ -355,10 +407,14 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
   const handleSelectPreset = (id: string, presetName: string, defaultPrice: number) => {
     updateItemField(id, 'productName', presetName);
     updateItemField(id, 'pricePerKg', defaultPrice);
-    if (presetName.includes('100กรัม') || presetName.includes('100 กรัม') || presetName.includes('100g')) {
+    if (presetName.includes('28กรัม') || presetName.includes('28 กรัม') || presetName.includes('28g')) {
+      updateItemField(id, 'packSize', '28g');
+    } else if (presetName.includes('100กรัม') || presetName.includes('100 กรัม') || presetName.includes('100g')) {
       updateItemField(id, 'packSize', '100g');
     } else if (presetName.includes('500กรัม') || presetName.includes('500 กรัม') || presetName.includes('500g')) {
       updateItemField(id, 'packSize', '500g');
+    } else if (presetName.includes('10กก') || presetName.includes('10 กก') || presetName.includes('10kg')) {
+      updateItemField(id, 'packSize', '10kg');
     } else if (presetName.includes('5กก') || presetName.includes('5 กก') || presetName.includes('5kg')) {
       updateItemField(id, 'packSize', '5kg');
     }
@@ -452,8 +508,9 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
         ...it,
         pricePerKg: Number(it.pricePerKg),
         weightKg: Number(it.weightKg),
-        totalPrice: Number(it.pricePerKg) * Number(it.weightKg),
+        totalPrice: Number(it.totalPrice),
         packSize: it.packSize || '1kg',
+        quantityPieces: it.quantityPieces,
       })),
       totalWeightKg: grandTotalWeight,
       subtotalAmount: itemsSubtotalAmount,
@@ -517,16 +574,18 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
           ...it,
           pricePerKg: Number(it.pricePerKg) || 0,
           weightKg: Number(it.weightKg) || 0,
-          totalPrice: (Number(it.pricePerKg) || 0) * (Number(it.weightKg) || 0),
+          totalPrice: Number(it.totalPrice) || 0,
           packSize: it.packSize || '1kg',
+          quantityPieces: it.quantityPieces,
         }))
       : items.map((it, idx) => ({
           id: it.id || `item-${idx}`,
           productName: it.productName.trim() || 'หอมเจียวคัดพิเศษ (ตัวอย่าง)',
           pricePerKg: Number(it.pricePerKg) || 160,
           weightKg: Number(it.weightKg) || 10,
-          totalPrice: (Number(it.pricePerKg) || 160) * (Number(it.weightKg) || 10),
+          totalPrice: Number(it.totalPrice) || (Number(it.pricePerKg) || 160) * (Number(it.weightKg) || 10),
           packSize: it.packSize || '1kg',
+          quantityPieces: it.quantityPieces,
         }));
 
     const cleanedTrackings = trackingList.map((t) => t.trim()).filter((t) => t.length > 0);
@@ -927,10 +986,10 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
                       />
                     </div>
 
-                    {/* Price per Kg */}
+                    {/* Price per Kg / Pouch */}
                     <div className="sm:col-span-3">
                       <label className="block text-[11px] font-semibold text-slate-500 mb-0.5">
-                        ราคา/กก. (บาท)
+                        {item.packSize === '28g' ? 'ราคา/ซอง (บาท)' : 'ราคา/กก. (บาท)'}
                       </label>
                       <input
                         type="number"
@@ -944,21 +1003,45 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
                       />
                     </div>
 
-                    {/* Weight in Kg */}
+                    {/* Weight in Kg or Pouches for 28g */}
                     <div className="sm:col-span-3">
-                      <label className="block text-[11px] font-semibold text-slate-500 mb-0.5">
-                        {isTracked ? 'จำนวนตัดสต็อค (กก.)' : 'จำนวนสั่งซื้อ (กก.)'}
-                      </label>
-                      <input
-                        type="number"
-                        step="any"
-                        min="0"
-                        required
-                        placeholder="0"
-                        value={item.weightKg || ''}
-                        onChange={(e) => updateItemField(item.id, 'weightKg', e.target.value)}
-                        className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white border border-slate-300 rounded-lg text-xs font-semibold text-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-                      />
+                      <div className="flex items-center justify-between mb-0.5">
+                        <label className="block text-[11px] font-semibold text-slate-500">
+                          {item.packSize === '28g'
+                            ? 'จำนวนสั่งซื้อ (ซอง)'
+                            : isTracked
+                            ? 'จำนวนตัดสต็อค (กก.)'
+                            : 'จำนวนสั่งซื้อ (กก.)'}
+                        </label>
+                        {item.packSize === '28g' && (
+                          <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                            = {item.weightKg || 0} กก.
+                          </span>
+                        )}
+                      </div>
+                      {item.packSize === '28g' ? (
+                        <input
+                          type="number"
+                          step="1"
+                          min="0"
+                          required
+                          placeholder="ระบุจำนวนซอง"
+                          value={item.quantityPieces !== undefined && item.quantityPieces !== null ? (item.quantityPieces || '') : (item.weightKg ? Math.round(item.weightKg / 0.028) : '')}
+                          onChange={(e) => updateItemField(item.id, 'quantityPieces', e.target.value)}
+                          className="w-full px-3 py-1.5 bg-emerald-50/40 focus:bg-white border border-emerald-300 rounded-lg text-xs font-bold text-emerald-800 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                        />
+                      ) : (
+                        <input
+                          type="number"
+                          step="any"
+                          min="0"
+                          required
+                          placeholder="0"
+                          value={item.weightKg || ''}
+                          onChange={(e) => updateItemField(item.id, 'weightKg', e.target.value)}
+                          className="w-full px-3 py-1.5 bg-slate-50 focus:bg-white border border-slate-300 rounded-lg text-xs font-semibold text-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                        />
+                      )}
                     </div>
 
                     {/* Delete button */}
@@ -989,9 +1072,20 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
 
                     {/* Pack Size Selection & Calculated Subtotal */}
                     <div className="sm:col-span-12 flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="text-[11px] font-semibold text-slate-500">ขนาดแพ็ค:</span>
-                        <div className="inline-flex rounded-lg p-0.5 bg-slate-100 border border-slate-200 gap-0.5">
+                        <div className="inline-flex rounded-lg p-0.5 bg-slate-100 border border-slate-200 gap-0.5 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => updateItemField(item.id, 'packSize', '28g')}
+                            className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
+                              item.packSize === '28g'
+                                ? 'bg-amber-500 text-white font-bold shadow-xs'
+                                : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                          >
+                            แพ็ค 28 กรัม (ซอง)
+                          </button>
                           <button
                             type="button"
                             onClick={() => updateItemField(item.id, 'packSize', '100g')}
@@ -1036,6 +1130,17 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
                           >
                             แพ็ค 5 กิโลกรัม
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => updateItemField(item.id, 'packSize', '10kg')}
+                            className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
+                              item.packSize === '10kg'
+                                ? 'bg-purple-600 text-white font-bold shadow-xs'
+                                : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                          >
+                            แพ็ค 10 กิโลกรัม
+                          </button>
                         </div>
                       </div>
 
@@ -1046,7 +1151,11 @@ export const OrderFormModal: React.FC<OrderFormModalProps> = ({
                           </span>
                         )}
                         <span>
-                          คำนวณ: {item.pricePerKg || 0} บาท × {item.weightKg || 0} กก.
+                          {item.packSize === '28g' ? (
+                            <>คำนวณ: {item.pricePerKg || 0} บ./ซอง × {item.quantityPieces || (item.weightKg ? Math.round(item.weightKg / 0.028) : 0)} ซอง ({item.weightKg || 0} กก.)</>
+                          ) : (
+                            <>คำนวณ: {item.pricePerKg || 0} บาท × {item.weightKg || 0} กก.</>
+                          )}
                         </span>
                         <span className="font-bold text-slate-800">
                           รวม = {formatCurrency(item.totalPrice)}

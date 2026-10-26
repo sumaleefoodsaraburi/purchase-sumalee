@@ -284,8 +284,8 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                   <tr>
                     <th className="py-2.5 px-3">ลำดับ</th>
                     <th className="py-2.5 px-3">รายการสินค้า</th>
-                    <th className="py-2.5 px-3 text-right">ราคา/กก. (บาท)</th>
-                    <th className="py-2.5 px-3 text-right">จำนวน (กก.)</th>
+                    <th className="py-2.5 px-3 text-right">ราคา/หน่วย</th>
+                    <th className="py-2.5 px-3 text-right">จำนวน</th>
                     <th className="py-2.5 px-3 text-right">ราคารวม (บาท)</th>
                   </tr>
                 </thead>
@@ -296,13 +296,40 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                       <td className="py-2.5 px-3">
                         <div className="font-semibold text-slate-900 flex items-center gap-2">
                           <span>{item.productName}</span>
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
-                            {item.packSize === '100g' ? 'แพ็ค 100g' : item.packSize === '500g' ? 'แพ็ค 500g' : item.packSize === '5kg' ? 'แพ็ค 5kg' : 'แพ็ค 1 กก.'}
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                            item.packSize === '28g'
+                              ? 'bg-amber-50 text-amber-800 border-amber-200'
+                              : item.packSize === '10kg'
+                              ? 'bg-purple-50 text-purple-800 border-purple-200'
+                              : 'bg-slate-100 text-slate-700 border border-slate-200'
+                          }`}>
+                            {item.packSize === '28g'
+                              ? 'แพ็ค 28g'
+                              : item.packSize === '100g'
+                              ? 'แพ็ค 100g'
+                              : item.packSize === '500g'
+                              ? 'แพ็ค 500g'
+                              : item.packSize === '5kg'
+                              ? 'แพ็ค 5kg'
+                              : item.packSize === '10kg'
+                              ? 'แพ็ค 10kg'
+                              : 'แพ็ค 1 กก.'}
                           </span>
                         </div>
                       </td>
-                      <td className="py-2.5 px-3 text-right font-mono text-slate-600">{formatCurrency(item.pricePerKg)}</td>
-                      <td className="py-2.5 px-3 text-right font-bold text-emerald-800">{formatWeight(item.weightKg)}</td>
+                      <td className="py-2.5 px-3 text-right font-mono text-slate-600">
+                        {formatCurrency(item.pricePerKg)}{item.packSize === '28g' ? '/ซอง' : '/กก.'}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-bold text-emerald-800">
+                        {item.packSize === '28g' ? (
+                          <div>
+                            <span>{item.quantityPieces || Math.round(item.weightKg / 0.028)} ซอง</span>
+                            <span className="block text-[10px] font-normal text-slate-500">({formatWeight(item.weightKg)})</span>
+                          </div>
+                        ) : (
+                          formatWeight(item.weightKg)
+                        )}
+                      </td>
                       <td className="py-2.5 px-3 text-right font-bold text-slate-900">{formatCurrency(item.totalPrice)}</td>
                     </tr>
                   ))}

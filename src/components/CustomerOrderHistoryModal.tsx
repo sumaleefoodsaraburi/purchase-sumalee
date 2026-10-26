@@ -411,13 +411,31 @@ export const CustomerOrderHistoryModal: React.FC<CustomerOrderHistoryModalProps>
                               <span className="truncate flex items-center gap-1.5">
                                 <span>• {it.productName}</span>
                                 {it.packSize && (
-                                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
-                                    {it.packSize === '100g' ? '100g' : it.packSize === '500g' ? '500g' : it.packSize === '5kg' ? '5kg' : '1 กก.'}
+                                  <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border shrink-0 ${
+                                    it.packSize === '28g'
+                                      ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                      : it.packSize === '10kg'
+                                      ? 'bg-purple-50 text-purple-800 border-purple-200'
+                                      : 'bg-slate-100 text-slate-600 border border-slate-200'
+                                  }`}>
+                                    {it.packSize === '28g'
+                                      ? '28g (ซอง)'
+                                      : it.packSize === '100g'
+                                      ? '100g'
+                                      : it.packSize === '500g'
+                                      ? '500g'
+                                      : it.packSize === '5kg'
+                                      ? '5kg'
+                                      : it.packSize === '10kg'
+                                      ? '10kg'
+                                      : '1 กก.'}
                                   </span>
                                 )}
                               </span>
                               <span className="font-semibold shrink-0 ml-2 font-mono text-slate-900">
-                                {it.weightKg} กก. × {it.pricePerKg}฿ = {formatCurrency(it.totalPrice)}
+                                {it.packSize === '28g'
+                                  ? `${it.quantityPieces || Math.round(it.weightKg / 0.028)} ซอง × ${it.pricePerKg}฿ = ${formatCurrency(it.totalPrice)}`
+                                  : `${it.weightKg} กก. × ${it.pricePerKg}฿ = ${formatCurrency(it.totalPrice)}`}
                               </span>
                             </div>
                           ))}

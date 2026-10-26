@@ -33,21 +33,34 @@ export function getReceiptHtml(order: PurchaseOrder, docType: DocumentType = 're
     .map(
       (item, idx) => {
         const packLabel =
-          item.packSize === '100g'
+          item.packSize === '28g'
+            ? ' <span style="font-size:10px; background:#fef3c7; padding:2px 6px; border-radius:4px; color:#92400e; border:1px solid #fde68a;">แพ็ค 28g</span>'
+            : item.packSize === '100g'
             ? ' <span style="font-size:10px; background:#f1f5f9; padding:2px 6px; border-radius:4px; color:#475569; border:1px solid #cbd5e1;">แพ็ค 100g</span>'
             : item.packSize === '500g'
             ? ' <span style="font-size:10px; background:#f1f5f9; padding:2px 6px; border-radius:4px; color:#475569; border:1px solid #cbd5e1;">แพ็ค 500g</span>'
             : item.packSize === '5kg'
             ? ' <span style="font-size:10px; background:#f1f5f9; padding:2px 6px; border-radius:4px; color:#475569; border:1px solid #cbd5e1;">แพ็ค 5kg</span>'
+            : item.packSize === '10kg'
+            ? ' <span style="font-size:10px; background:#f3e8ff; padding:2px 6px; border-radius:4px; color:#6b21a8; border:1px solid #e9d5ff;">แพ็ค 10kg</span>'
             : ' <span style="font-size:10px; background:#f1f5f9; padding:2px 6px; border-radius:4px; color:#475569; border:1px solid #cbd5e1;">แพ็ค 1 กก.</span>';
+
+        const unitPriceStr = item.packSize === '28g'
+          ? `${formatCurrency(item.pricePerKg)}/ซอง`
+          : `${formatCurrency(item.pricePerKg)}/กก.`;
+
+        const qtyStr = item.packSize === '28g'
+          ? `${item.quantityPieces || Math.round(item.weightKg / 0.028)} ซอง <span style="font-size:11px; color:#64748b; font-weight:normal;">(${formatWeight(item.weightKg)})</span>`
+          : formatWeight(item.weightKg);
+
         return `
         <tr>
           <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: center; color: #64748b;">${idx + 1}</td>
           <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0;">
             <div style="font-weight: 700; color: #0f172a; font-size: 13px;">${item.productName}${packLabel}</div>
           </td>
-          <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: right; font-family: monospace;">${formatCurrency(item.pricePerKg)}</td>
-          <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 700; color: #065f46;">${formatWeight(item.weightKg)}</td>
+          <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: right; font-family: monospace;">${unitPriceStr}</td>
+          <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 700; color: #065f46;">${qtyStr}</td>
           <td style="padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: 700; color: #0f172a;">${formatCurrency(item.totalPrice)}</td>
         </tr>
       `;
@@ -337,8 +350,8 @@ export function getReceiptHtml(order: PurchaseOrder, docType: DocumentType = 're
             <tr>
               <th style="width: 50px; text-align: center;">ลำดับ</th>
               <th style="text-align: left;">รายการสินค้า</th>
-              <th style="width: 120px; text-align: right;">ราคา/กก. (บาท)</th>
-              <th style="width: 120px; text-align: right;">จำนวน (กก.)</th>
+              <th style="width: 120px; text-align: right;">ราคา/หน่วย</th>
+              <th style="width: 130px; text-align: right;">จำนวน</th>
               <th style="width: 140px; text-align: right;">ราคารวม (บาท)</th>
             </tr>
           </thead>

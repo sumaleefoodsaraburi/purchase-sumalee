@@ -3,10 +3,11 @@ export type StockLocation = 'factory' | 'online';
 export interface OrderItem {
   id: string;
   productName: string;
-  pricePerKg: number; // ราคาต่อ กก. (บาท)
+  pricePerKg: number; // ราคาต่อ กก. (บาท) หรือราคาต่อซองสำหรับขนาด 28g
   weightKg: number;    // จำนวน (กก.)
-  totalPrice: number;  // ราคารวม = pricePerKg * weightKg
-  packSize?: string;   // e.g. '100g', '500g', '1kg', '5kg'
+  totalPrice: number;  // ราคารวม = pricePerKg * weightKg (หรือ pricePerPiece * quantityPieces)
+  packSize?: string;   // e.g. '28g', '100g', '500g', '1kg', '5kg', '10kg'
+  quantityPieces?: number; // จำนวนซอง/ชิ้น สำหรับขนาดซอง 28กรัม
 }
 
 export interface CustomerInfo {
