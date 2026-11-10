@@ -62,6 +62,7 @@ export const POPULAR_PRODUCTS_PRESETS = [
   { name: 'หอมเจียวยางเขียว 500กรัม (รหัส OF02.01)', defaultPrice: 65 },
   { name: 'หอมเจียวยางเขียว 100กรัม (รหัส OF02.02)', defaultPrice: 20 },
   { name: 'หอมเจียว 28 กรัม', defaultPrice: 5 },
+  { name: 'หอมเจียวซองเล็ก 28กรัม', defaultPrice: 5 },
   { name: 'หอมเจียว แพ็ค 10 กก.', defaultPrice: 120 },
   { name: 'กระเทียมเจียว 28 กรัม', defaultPrice: 5 },
   { name: 'กระเทียมเจียว แพ็ค 10 กก.', defaultPrice: 110 },

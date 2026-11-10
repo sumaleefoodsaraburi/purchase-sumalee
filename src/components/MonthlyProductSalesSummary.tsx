@@ -567,7 +567,18 @@ export const MonthlyProductSalesSummary: React.FC<MonthlyProductSalesSummaryProp
 
                         {/* Weight Sold */}
                         <td className="py-3 px-3 text-right font-mono font-bold text-slate-900">
-                          {formatWeight(prod.totalWeightKg)}
+                          {prod.isPouch ? (
+                            <div>
+                              <span className="text-amber-800 font-extrabold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                                {(prod.totalPieces || 0).toLocaleString()} ซอง
+                              </span>
+                              <span className="block text-[10px] text-slate-400 font-normal mt-0.5">
+                                ({formatWeight(prod.totalWeightKg)})
+                              </span>
+                            </div>
+                          ) : (
+                            formatWeight(prod.totalWeightKg)
+                          )}
                           <div className="w-full bg-slate-100 rounded-full h-1 mt-1 overflow-hidden">
                             <div
                               className="bg-blue-500 h-1 rounded-full"

@@ -1,5 +1,5 @@
 import { PurchaseOrder } from '../types';
-import { THAI_FULL_MONTHS, THAI_SHORT_MONTHS, formatCurrency, formatWeight } from './formatters';
+import { THAI_FULL_MONTHS, THAI_SHORT_MONTHS, formatCurrency, formatWeight, is28gPouch, getPouchPieces } from './formatters';
 
 export interface MonthlyProductStat {
   productName: string;
@@ -10,6 +10,8 @@ export interface MonthlyProductStat {
   avgPricePerKg: number;
   revenueSharePercent: number;
   weightSharePercent: number;
+  totalPieces?: number;
+  isPouch?: boolean;
   monthlyBreakdown?: Record<string, { weightKg: number; revenue: number; ordersCount: number }>;
 }
 
@@ -114,6 +116,8 @@ export function getMonthlyProductSummary(
     totalWeightKg: number;
     totalRevenue: number;
     ordersCount: number;
+    totalPieces: number;
+    isPouch: boolean;
   }> = {};
 
   filteredOrders.forEach((order) => {
@@ -121,7 +125,13 @@ export function getMonthlyProductSummary(
     const productsInThisOrder = new Set<string>();
 
     order.items.forEach((item) => {
-      const name = item.productName.trim() || 'สินค้าไม่ระบุชื่อ';
+      const rawName = item.productName.trim() || 'สินค้าไม่ระบุชื่อ';
+      const isPouch = is28gPouch(rawName, item.packSize);
+      const name = (isPouch && !rawName.includes('28') && !rawName.includes('ซอง'))
+        ? `${rawName} 28 กรัม (ซอง)`
+        : rawName;
+      const pieces = isPouch ? getPouchPieces(item.weightKg, item.quantityPieces) : 0;
+
       if (!productMap[name]) {
         productMap[name] = {
           productName: name,
@@ -129,6 +139,8 @@ export function getMonthlyProductSummary(
           totalWeightKg: 0,
           totalRevenue: 0,
           ordersCount: 0,
+          totalPieces: 0,
+          isPouch,
         };
       }
 
@@ -136,6 +148,9 @@ export function getMonthlyProductSummary(
       productMap[name].totalRevenue += item.totalPrice;
       if (item.packSize) {
         productMap[name].packSizesSet.add(item.packSize);
+      }
+      if (isPouch) {
+        productMap[name].totalPieces += pieces;
       }
 
       productsInThisOrder.add(name);
@@ -167,6 +182,8 @@ export function getMonthlyProductSummary(
         avgPricePerKg: Math.round(avgPricePerKg * 100) / 100,
         revenueSharePercent,
         weightSharePercent,
+        totalPieces: p.totalPieces,
+        isPouch: p.isPouch,
       };
     })
     .sort((a, b) => b.totalRevenue - a.totalRevenue);

@@ -67,6 +67,7 @@ export const DailyWeightSummaryModal: React.FC<DailyWeightSummaryModalProps> = (
   const grandTotalWeight = searchedBreakdown.reduce((sum, d) => sum + d.totalWeightKg, 0);
   const grandTotalOrders = searchedBreakdown.reduce((sum, d) => sum + d.totalOrders, 0);
   const grandTotalRevenue = searchedBreakdown.reduce((sum, d) => sum + d.totalRevenue, 0);
+  const grandTotalPouches = searchedBreakdown.reduce((sum, d) => sum + (d.totalPouches28g || 0), 0);
 
   // Toggle expand product breakdown
   const toggleExpand = (dateKey: string) => {
@@ -159,7 +160,9 @@ export const DailyWeightSummaryModal: React.FC<DailyWeightSummaryModalProps> = (
                   <td style="text-align: right; font-weight: bold;">${formatCurrency(item.totalRevenue)}</td>
                   <td>
                     ${item.products.map(p => `
-                      <span class="product-tag">${p.productName}: <strong>${formatWeight(p.weightKg)}</strong></span>
+                      <span class="product-tag" style="${p.isPouch ? 'background:#fef3c7; border-color:#fde68a; color:#92400e;' : ''}">
+                        ${p.productName}: <strong>${p.isPouch ? `${(p.quantityPieces || 0).toLocaleString()} ซอง` : formatWeight(p.weightKg)}</strong>
+                      </span>
                     `).join('')}
                   </td>
                 </tr>
@@ -221,6 +224,11 @@ export const DailyWeightSummaryModal: React.FC<DailyWeightSummaryModalProps> = (
           <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700/80">
             <span className="text-[11px] text-slate-400 block">รวมกิโลกรัมทั้งหมด (Total Kg)</span>
             <span className="text-xl font-black text-emerald-400">{formatWeight(grandTotalWeight)}</span>
+            {grandTotalPouches > 0 && (
+              <span className="text-[10px] text-amber-300 block font-semibold mt-0.5">
+                (หอมเจียว 28g รวม {grandTotalPouches.toLocaleString()} ซอง)
+              </span>
+            )}
           </div>
 
           <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700/80">
@@ -325,9 +333,16 @@ export const DailyWeightSummaryModal: React.FC<DailyWeightSummaryModalProps> = (
 
                       <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
                         <div className="text-right">
-                          <span className="text-xs font-black text-emerald-800 bg-emerald-100/90 px-3 py-1 rounded-xl border border-emerald-300 inline-block">
-                            ⚖️ ขายได้ {formatWeight(item.totalWeightKg)}
-                          </span>
+                          <div className="flex items-center gap-1.5 justify-end flex-wrap">
+                            <span className="text-xs font-black text-emerald-800 bg-emerald-100/90 px-3 py-1 rounded-xl border border-emerald-300 inline-block">
+                              ⚖️ ขายได้ {formatWeight(item.totalWeightKg)}
+                            </span>
+                            {item.totalPouches28g !== undefined && item.totalPouches28g > 0 && (
+                              <span className="text-xs font-black text-amber-900 bg-amber-100 px-2.5 py-1 rounded-xl border border-amber-300 inline-block shadow-xs">
+                                📦 ซอง 28g: {item.totalPouches28g.toLocaleString()} ซอง
+                              </span>
+                            )}
+                          </div>
                           <span className="text-xs font-bold text-slate-700 block mt-1">
                             ยอดเงิน: {formatCurrency(item.totalRevenue)}
                           </span>
@@ -354,12 +369,22 @@ export const DailyWeightSummaryModal: React.FC<DailyWeightSummaryModalProps> = (
                         {item.products.map((p, pIdx) => (
                           <div
                             key={pIdx}
-                            className="bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-xl px-3 py-1.5 text-xs flex items-center gap-2 transition-colors"
+                            className={`border rounded-xl px-3 py-1.5 text-xs flex items-center gap-2 transition-colors ${
+                              p.isPouch
+                                ? 'bg-amber-50/90 hover:bg-amber-100 border-amber-300 shadow-xs'
+                                : 'bg-slate-50 hover:bg-slate-100 border-slate-200/80'
+                            }`}
                           >
                             <span className="font-bold text-slate-800">{p.productName}</span>
-                            <span className="bg-emerald-600 text-white font-bold text-[11px] px-2 py-0.5 rounded-lg shadow-xs">
-                              {formatWeight(p.weightKg)}
-                            </span>
+                            {p.isPouch ? (
+                              <span className="bg-amber-600 text-white font-extrabold text-[11px] px-2.5 py-0.5 rounded-lg shadow-xs">
+                                {(p.quantityPieces || 0).toLocaleString()} ซอง
+                              </span>
+                            ) : (
+                              <span className="bg-emerald-600 text-white font-bold text-[11px] px-2 py-0.5 rounded-lg shadow-xs">
+                                {formatWeight(p.weightKg)}
+                              </span>
+                            )}
                             {isExpanded && (
                               <span className="text-emerald-700 font-bold text-[11px] border-l border-slate-300 pl-1.5">
                                 {formatCurrency(p.revenue)}
@@ -376,15 +401,32 @@ export const DailyWeightSummaryModal: React.FC<DailyWeightSummaryModalProps> = (
                             <thead>
                               <tr className="bg-slate-100/70 text-slate-600 font-semibold text-[11px]">
                                 <th className="p-2 rounded-l-lg">ชื่อสินค้า (Product)</th>
-                                <th className="p-2 text-right">น้ำหนักรวม (กก.)</th>
+                                <th className="p-2 text-right">จำนวนที่ขายได้</th>
                                 <th className="p-2 text-right rounded-r-lg">มูลค่ารวม (บาท)</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                               {item.products.map((p, pIdx) => (
                                 <tr key={pIdx} className="hover:bg-slate-50/60">
-                                  <td className="p-2 font-medium text-slate-800">{p.productName}</td>
-                                  <td className="p-2 text-right font-bold text-emerald-700">{formatWeight(p.weightKg)}</td>
+                                  <td className="p-2 font-medium text-slate-800">
+                                    <span>{p.productName}</span>
+                                    {p.isPouch && (
+                                      <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300">
+                                        ซอง 28g
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="p-2 text-right font-bold">
+                                    {p.isPouch ? (
+                                      <span className="text-amber-800 font-extrabold bg-amber-50 px-2.5 py-1 rounded-md border border-amber-200 inline-block">
+                                        {(p.quantityPieces || 0).toLocaleString()} ซอง
+                                      </span>
+                                    ) : (
+                                      <span className="text-emerald-700 font-bold">
+                                        {formatWeight(p.weightKg)}
+                                      </span>
+                                    )}
+                                  </td>
                                   <td className="p-2 text-right font-bold text-slate-900">{formatCurrency(p.revenue)}</td>
                                 </tr>
                               ))}

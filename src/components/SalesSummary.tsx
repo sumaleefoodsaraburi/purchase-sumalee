@@ -125,10 +125,13 @@ export const SalesSummary: React.FC<SalesSummaryProps> = ({
     totalWeightKg: todayMetrics.totalWeightKg,
     totalOrders: todayMetrics.orderCount,
     totalRevenue: todayMetrics.totalRevenue,
+    totalPouches28g: getTopProducts(todayOrders, 100).filter(p => p.isPouch).reduce((sum, p) => sum + (p.totalPieces || 0), 0),
     products: getTopProducts(todayOrders, 100).map((p) => ({
       productName: p.name,
       weightKg: p.totalWeightKg,
       revenue: p.totalRevenue,
+      quantityPieces: p.totalPieces,
+      isPouch: p.isPouch,
     })),
   };
 
@@ -382,6 +385,11 @@ export const SalesSummary: React.FC<SalesSummaryProps> = ({
                 <span className="text-2xl sm:text-3xl font-black text-emerald-400">
                   {formatWeight(todaySummary.totalWeightKg)}
                 </span>
+                {todaySummary.totalPouches28g !== undefined && todaySummary.totalPouches28g > 0 && (
+                  <span className="text-[11px] text-amber-300 font-bold block mt-0.5">
+                    (หอมเจียว 28g: {todaySummary.totalPouches28g.toLocaleString()} ซอง)
+                  </span>
+                )}
               </div>
               <div className="h-8 w-px bg-white/20"></div>
               <div>
@@ -417,9 +425,15 @@ export const SalesSummary: React.FC<SalesSummaryProps> = ({
                       <span className="text-xs font-semibold text-white block truncate">• {p.productName}</span>
                       <span className="text-[10px] text-slate-300">{formatCurrency(p.revenue)}</span>
                     </div>
-                    <span className="text-xs font-black text-emerald-300 bg-emerald-950/80 px-2.5 py-1 rounded-lg border border-emerald-500/40 shrink-0">
-                      {formatWeight(p.weightKg)}
-                    </span>
+                    {p.isPouch ? (
+                      <span className="text-xs font-black text-amber-200 bg-amber-950/90 px-2.5 py-1 rounded-lg border border-amber-500/50 shrink-0">
+                        {(p.quantityPieces || 0).toLocaleString()} ซอง
+                      </span>
+                    ) : (
+                      <span className="text-xs font-black text-emerald-300 bg-emerald-950/80 px-2.5 py-1 rounded-lg border border-emerald-500/40 shrink-0">
+                        {formatWeight(p.weightKg)}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>

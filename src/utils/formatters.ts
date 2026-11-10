@@ -168,6 +168,8 @@ export interface ProductStat {
   totalWeightKg: number;
   totalRevenue: number;
   ordersCount: number;
+  totalPieces?: number;
+  isPouch?: boolean;
 }
 
 export function getTopProducts(orders: PurchaseOrder[], limit: number = 5): ProductStat[] {
@@ -175,18 +177,29 @@ export function getTopProducts(orders: PurchaseOrder[], limit: number = 5): Prod
 
   orders.forEach((order) => {
     order.items.forEach((item) => {
-      const name = item.productName.trim() || 'สินค้าไม่ระบุชื่อ';
+      const rawName = item.productName.trim() || 'สินค้าไม่ระบุชื่อ';
+      const isPouch = is28gPouch(rawName, item.packSize);
+      const name = (isPouch && !rawName.includes('28') && !rawName.includes('ซอง'))
+        ? `${rawName} 28 กรัม (ซอง)`
+        : rawName;
+      const pieces = isPouch ? getPouchPieces(item.weightKg, item.quantityPieces) : 0;
+
       if (!map[name]) {
         map[name] = {
           name,
           totalWeightKg: 0,
           totalRevenue: 0,
           ordersCount: 0,
+          totalPieces: 0,
+          isPouch,
         };
       }
       map[name].totalWeightKg += item.weightKg;
       map[name].totalRevenue += item.totalPrice;
       map[name].ordersCount += 1;
+      if (isPouch) {
+        map[name].totalPieces = (map[name].totalPieces || 0) + pieces;
+      }
     });
   });
 
@@ -265,6 +278,35 @@ export function filterOrdersByMonth(orders: PurchaseOrder[], yearMonthKey: strin
   });
 }
 
+/**
+ * Detect if a product item is a 28g small pouch (หอมเจียว / กระเทียมเจียว ซองเล็ก 28 กรัม)
+ */
+export function is28gPouch(productName?: string, packSize?: string): boolean {
+  if (packSize === '28g') return true;
+  if (!productName) return false;
+  const p = productName.toLowerCase().replace(/\s+/g, '');
+  if (p.includes('28g') || p.includes('28กรัม') || p.includes('ซองเล็ก28') || p.includes('28ซอง')) {
+    return true;
+  }
+  if (productName.includes('28') && (productName.includes('ซอง') || productName.includes('กรัม') || productName.includes('g') || productName.includes('G'))) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Calculate pouch pieces count from quantityPieces or weightKg (0.028 kg/pouch)
+ */
+export function getPouchPieces(weightKg: number, pieces?: number): number {
+  if (pieces !== undefined && pieces !== null && Number(pieces) > 0) {
+    return Number(pieces);
+  }
+  if (weightKg > 0) {
+    return Math.round(weightKg / 0.028);
+  }
+  return 0;
+}
+
 export interface DailyWeightSummary {
   dateKey: string;          // e.g. "2026-08-03"
   dateThaiFull: string;     // e.g. "3 สิงหาคม 2569"
@@ -272,15 +314,20 @@ export interface DailyWeightSummary {
   totalWeightKg: number;
   totalOrders: number;
   totalRevenue: number;
+  totalPouches28g?: number; // Total number of 28g small pouches sold that day
   products: Array<{
     productName: string;
     weightKg: number;
     revenue: number;
+    quantityPieces?: number;
+    isPouch?: boolean;
+    packSize?: string;
   }>;
 }
 
 /**
- * Group orders by exact day and compute total weight (กก.) and product weight breakdown for each day
+ * Group orders by exact day and compute total weight (กก.) and product breakdown for each day
+ * For 28g small pouches (หอมเจียวซองเล็ก 28กรัม), sums as quantityPieces (จำนวนซอง)
  */
 export function getDailyWeightBreakdown(orders: PurchaseOrder[]): DailyWeightSummary[] {
   const map: Record<string, {
@@ -289,7 +336,15 @@ export function getDailyWeightBreakdown(orders: PurchaseOrder[]): DailyWeightSum
     totalWeightKg: number;
     totalOrders: number;
     totalRevenue: number;
-    productMap: Record<string, { productName: string; weightKg: number; revenue: number }>;
+    totalPouches28g: number;
+    productMap: Record<string, {
+      productName: string;
+      weightKg: number;
+      revenue: number;
+      quantityPieces: number;
+      isPouch: boolean;
+      packSize?: string;
+    }>;
   }> = {};
 
   orders.forEach((order) => {
@@ -309,6 +364,7 @@ export function getDailyWeightBreakdown(orders: PurchaseOrder[]): DailyWeightSum
         totalWeightKg: 0,
         totalOrders: 0,
         totalRevenue: 0,
+        totalPouches28g: 0,
         productMap: {},
       };
     }
@@ -318,16 +374,32 @@ export function getDailyWeightBreakdown(orders: PurchaseOrder[]): DailyWeightSum
     map[dateKey].totalRevenue += order.totalAmount;
 
     order.items.forEach((item) => {
-      const pName = item.productName.trim() || 'สินค้าไม่ระบุชื่อ';
+      const rawName = item.productName.trim() || 'สินค้าไม่ระบุชื่อ';
+      const isPouch = is28gPouch(rawName, item.packSize);
+      
+      // If product name is plain e.g. 'หอมเจียว' but packSize is '28g', qualify it
+      const pName = (isPouch && !rawName.includes('28') && !rawName.includes('ซอง'))
+        ? `${rawName} 28 กรัม (ซอง)`
+        : rawName;
+
+      const pieces = isPouch ? getPouchPieces(item.weightKg, item.quantityPieces) : 0;
+
       if (!map[dateKey].productMap[pName]) {
         map[dateKey].productMap[pName] = {
           productName: pName,
           weightKg: 0,
           revenue: 0,
+          quantityPieces: 0,
+          isPouch,
+          packSize: item.packSize || (isPouch ? '28g' : undefined),
         };
       }
       map[dateKey].productMap[pName].weightKg += item.weightKg;
       map[dateKey].productMap[pName].revenue += item.totalPrice;
+      if (isPouch) {
+        map[dateKey].productMap[pName].quantityPieces += pieces;
+        map[dateKey].totalPouches28g += pieces;
+      }
     });
   });
 
@@ -339,7 +411,8 @@ export function getDailyWeightBreakdown(orders: PurchaseOrder[]): DailyWeightSum
     const dateThaiFull = `${d.getDate()} ${THAI_FULL_MONTHS[mIdx]} ${thaiYear}`;
     const dateThaiShort = `${d.getDate()} ${THAI_SHORT_MONTHS[mIdx]} ${String(thaiYear).slice(-2)}`;
 
-    const products = Object.values(entry.productMap).sort((a, b) => b.weightKg - a.weightKg);
+    // Sort products by revenue / significance
+    const products = Object.values(entry.productMap).sort((a, b) => b.revenue - a.revenue);
 
     return {
       dateKey: entry.dateKey,
@@ -348,6 +421,7 @@ export function getDailyWeightBreakdown(orders: PurchaseOrder[]): DailyWeightSum
       totalWeightKg: entry.totalWeightKg,
       totalOrders: entry.totalOrders,
       totalRevenue: entry.totalRevenue,
+      totalPouches28g: entry.totalPouches28g,
       products,
     };
   });
