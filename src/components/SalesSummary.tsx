@@ -65,6 +65,7 @@ interface SalesSummaryProps {
   onViewReceipt?: (order: PurchaseOrder) => void;
   onViewShippingLabel?: (order: PurchaseOrder) => void;
   onOpenStockModal?: () => void;
+  onOpenPackingList?: () => void;
 }
 
 export const SalesSummary: React.FC<SalesSummaryProps> = ({
@@ -77,6 +78,7 @@ export const SalesSummary: React.FC<SalesSummaryProps> = ({
   onViewReceipt,
   onViewShippingLabel,
   onOpenStockModal,
+  onOpenPackingList,
 }) => {
   const [selectedMonthKey, setSelectedMonthKey] = useState<string>('all');
   const [orderToDelete, setOrderToDelete] = useState<PurchaseOrder | null>(null);
@@ -442,7 +444,19 @@ export const SalesSummary: React.FC<SalesSummaryProps> = ({
 
           <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-400 border-t border-slate-700/60">
             <span>* รายการน้ำหนักและยอดขายรวมคำนวณอัตโนมัติจากออเดอร์ขายจริงวันนี้</span>
-            <span>ดูประวัติย้อนหลัง {allDailyBreakdown.length} วัน ได้จากปุ่ม "สรุปยอดขายรายวัน" ที่แถบเมนูด้านบน</span>
+            <div className="flex flex-wrap items-center gap-2">
+              {onOpenPackingList && (
+                <button
+                  type="button"
+                  onClick={onOpenPackingList}
+                  className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 text-xs ring-1 ring-purple-400/50"
+                >
+                  <Truck className="w-3.5 h-3.5 text-purple-200" />
+                  <span>เช็ครายการขึ้นของวันนี้ (Packing List)</span>
+                </button>
+              )}
+              <span>ดูประวัติย้อนหลัง {allDailyBreakdown.length} วัน ได้จากปุ่ม "สรุปยอดขายรายวัน" ด้านบน</span>
+            </div>
           </div>
         </div>
       </div>

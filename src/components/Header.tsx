@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Calendar, MapPin, Phone, Database, Scale, BarChart2, Users, ListFilter } from 'lucide-react';
+import { Plus, Calendar, MapPin, Phone, Database, Scale, BarChart2, Users, ListFilter, ClipboardCheck, Truck } from 'lucide-react';
 import { formatThaiDateTime } from '../utils/formatters';
 
 interface HeaderProps {
@@ -8,6 +8,7 @@ interface HeaderProps {
   onOpenStockManagement?: () => void;
   onOpenDailyWeightSummary?: () => void;
   onOpenCustomerSummary?: () => void;
+  onOpenPackingList?: () => void;
   totalOrdersCount: number;
 }
 
@@ -17,6 +18,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenStockManagement,
   onOpenDailyWeightSummary,
   onOpenCustomerSummary,
+  onOpenPackingList,
   totalOrdersCount,
 }) => {
   const nowIso = new Date().toISOString();
@@ -118,6 +120,17 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <Users className="w-4 h-4 text-blue-400" />
                 <span>สรุปข้อมูลลูกค้า</span>
+              </button>
+            )}
+
+            {/* 5. ปุ่มใบขึ้นของขนส่ง (Packing List) */}
+            {onOpenPackingList && (
+              <button
+                onClick={onOpenPackingList}
+                className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-black text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 rounded-xl shadow-lg shadow-purple-600/30 transition-all hover:scale-[1.02] active:scale-[0.98] ring-1 ring-purple-400/50"
+              >
+                <ClipboardCheck className="w-4 h-4 text-purple-200 stroke-[2.5]" />
+                <span>ใบขึ้นของ (Packing List)</span>
               </button>
             )}
 

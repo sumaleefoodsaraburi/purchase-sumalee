@@ -25,6 +25,7 @@ import { OrderFormModal } from './components/OrderFormModal';
 import { ReceiptModal } from './components/ReceiptModal';
 import { ShippingLabelModal } from './components/ShippingLabelModal';
 import { DailyWeightSummaryModal } from './components/DailyWeightSummaryModal';
+import { DailyPackingListModal } from './components/DailyPackingListModal';
 import { StockManagementModal } from './components/StockManagementModal';
 import { CustomerSummary } from './components/CustomerSummary';
 import { BarChart2, ListFilter, PlusCircle, CheckCircle, Wifi, CloudCheck, Scale, Users } from 'lucide-react';
@@ -47,6 +48,7 @@ export default function App() {
 
   const [shippingLabelOrder, setShippingLabelOrder] = useState<PurchaseOrder | null>(null);
   const [isDailyWeightModalOpen, setIsDailyWeightModalOpen] = useState(false);
+  const [isPackingListOpen, setIsPackingListOpen] = useState(false);
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
 
   // Toast Notification
@@ -251,6 +253,7 @@ export default function App() {
         onOpenStockManagement={() => setIsStockModalOpen(true)}
         onOpenDailyWeightSummary={() => setIsDailyWeightModalOpen(true)}
         onOpenCustomerSummary={() => setActiveTab('customers')}
+        onOpenPackingList={() => setIsPackingListOpen(true)}
         totalOrdersCount={orders.length}
       />
 
@@ -316,6 +319,7 @@ export default function App() {
             onViewReceipt={handleViewReceipt}
             onViewShippingLabel={handleViewShippingLabel}
             onOpenStockModal={() => setIsStockModalOpen(true)}
+            onOpenPackingList={() => setIsPackingListOpen(true)}
           />
         ) : activeTab === 'customers' ? (
           <CustomerSummary
@@ -332,6 +336,7 @@ export default function App() {
             onViewReceipt={handleViewReceipt}
             onViewShippingLabel={handleViewShippingLabel}
             onQuickUpdateOrder={handleSaveOrder}
+            onOpenPackingList={() => setIsPackingListOpen(true)}
           />
         )}
 
@@ -384,6 +389,15 @@ export default function App() {
         isOpen={isDailyWeightModalOpen}
         onClose={() => setIsDailyWeightModalOpen(false)}
         orders={orders}
+      />
+
+      {/* DAILY TRANSPORT PACKING LIST MODAL */}
+      <DailyPackingListModal
+        isOpen={isPackingListOpen}
+        onClose={() => setIsPackingListOpen(false)}
+        orders={orders}
+        onQuickUpdateOrder={handleSaveOrder}
+        onViewShippingLabel={handleViewShippingLabel}
       />
 
       {/* FACTORY STOCK & DEDUCTION MANAGEMENT MODAL */}

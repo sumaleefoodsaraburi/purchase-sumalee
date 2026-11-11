@@ -51,6 +51,7 @@ interface OrderListProps {
   onViewReceipt: (order: PurchaseOrder) => void;
   onViewShippingLabel: (order: PurchaseOrder) => void;
   onQuickUpdateOrder?: (order: PurchaseOrder) => void;
+  onOpenPackingList?: () => void;
 }
 
 export const OrderList: React.FC<OrderListProps> = ({
@@ -61,6 +62,7 @@ export const OrderList: React.FC<OrderListProps> = ({
   onViewReceipt,
   onViewShippingLabel,
   onQuickUpdateOrder,
+  onOpenPackingList,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState<SummaryPeriod | string>('all');
@@ -327,6 +329,16 @@ export const OrderList: React.FC<OrderListProps> = ({
 
           {/* Export Excel & Add button */}
           <div className="flex items-center gap-2 shrink-0">
+            {onOpenPackingList && (
+              <button
+                onClick={onOpenPackingList}
+                title="เปิดใบรายการขึ้นของขนส่ง (Daily Packing List)"
+                className="px-3.5 py-2 text-xs font-bold text-purple-900 bg-purple-50 hover:bg-purple-100 rounded-xl transition-colors border border-purple-200 inline-flex items-center gap-1.5 shadow-sm"
+              >
+                <Truck className="w-4 h-4 text-purple-600" />
+                <span>ใบขึ้นของขนส่ง</span>
+              </button>
+            )}
             <button
               onClick={handleExportExcel}
               disabled={filtered.length === 0}

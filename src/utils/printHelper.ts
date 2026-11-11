@@ -1,5 +1,5 @@
 import { PurchaseOrder, DocumentType } from '../types';
-import { formatCurrency, formatWeight, formatThaiDateTime, generateReceiptNumber, thaiBahtText } from './formatters';
+import { formatCurrency, formatWeight, formatThaiDateTime, generateReceiptNumber, thaiBahtText, is28gPouch, getPouchPieces } from './formatters';
 import { getAllTrackingNumbers } from './trackingUtils';
 
 /**
@@ -660,6 +660,425 @@ export function getShippingLabelHtml(order: PurchaseOrder): string {
         <div class="footer-stub">
           <div style="letter-spacing: 4px; font-weight: 900; font-size: 16px; color: #0f172a; margin-bottom: 4px;">||| | ||||| |||| || ||||||| ||| ||||</div>
           <div>SUMALEE FOOD SARABURI • PARCEL EXPRESS DELIVERY</div>
+        </div>
+      </div>
+
+      <script>
+        window.onload = function() {
+          window.focus();
+          window.print();
+        };
+      </script>
+    </body>
+    </html>
+  `;
+}
+
+/**
+ * Generate full HTML document string for Daily Transport Packing List (ใบรายการขึ้นของขนส่งรายวัน)
+ * Optimized for clean A4 printing, auditing, and clipboard pen checking
+ */
+export function getDailyPackingListHtml(
+  orders: PurchaseOrder[],
+  dateLabel: string,
+  courierFilter: string = 'all'
+): string {
+  const totalOrders = orders.length;
+  const totalBoxes = orders.reduce((sum, o) => sum + (o.boxCount || 1), 0);
+  const totalWeightKg = orders.reduce((sum, o) => sum + (o.totalWeightKg || 0), 0);
+  const codOrders = orders.filter((o) => o.paymentStatus === 'cod');
+  const totalCodAmount = codOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+  const totalPouches28g = orders.reduce(
+    (sum, o) =>
+      sum +
+      (o.items || [])
+        .filter((it) => is28gPouch(it.productName, it.packSize))
+        .reduce((s, it) => s + getPouchPieces(it.weightKg, it.quantityPieces), 0),
+    0
+  );
+
+  // Group consolidated products
+  const productSummaryMap: Record<
+    string,
+    {
+      productName: string;
+      packSize: string;
+      totalWeightKg: number;
+      totalPieces: number;
+      isPouch: boolean;
+      ordersCount: number;
+    }
+  > = {};
+
+  orders.forEach((o) => {
+    (o.items || []).forEach((it) => {
+      const pName = it.productName.trim() || 'สินค้าไม่ระบุชื่อ';
+      const isPouch = is28gPouch(pName, it.packSize);
+      const pack = it.packSize || (isPouch ? '28g' : '1kg');
+      const key = `${pName}___${pack}`;
+      const pieces = isPouch ? getPouchPieces(it.weightKg, it.quantityPieces) : 0;
+
+      if (!productSummaryMap[key]) {
+        productSummaryMap[key] = {
+          productName: pName,
+          packSize: pack,
+          totalWeightKg: 0,
+          totalPieces: 0,
+          isPouch,
+          ordersCount: 0,
+        };
+      }
+      productSummaryMap[key].totalWeightKg += it.weightKg || 0;
+      productSummaryMap[key].totalPieces += pieces;
+      productSummaryMap[key].ordersCount += 1;
+    });
+  });
+
+  const consolidatedProducts = Object.values(productSummaryMap).sort((a, b) => {
+    if (a.isPouch !== b.isPouch) return a.isPouch ? 1 : -1;
+    return b.totalWeightKg - a.totalWeightKg;
+  });
+
+  const courierTitle = courierFilter === 'all' ? 'ทุกสายขนส่ง (All Couriers)' : courierFilter;
+
+  // Render Table Rows
+  const tableRows = orders
+    .map((order, idx) => {
+      const trackings = getAllTrackingNumbers(order);
+      const isCod = order.paymentStatus === 'cod';
+      const boxCount = order.boxCount || 1;
+
+      const itemsDetail = (order.items || [])
+        .map((it) => {
+          const isPouch = is28gPouch(it.productName, it.packSize);
+          const packBadge = it.packSize ? ` [${it.packSize}]` : '';
+          const qtyStr = isPouch
+            ? `${getPouchPieces(it.weightKg, it.quantityPieces)} ซอง`
+            : `${it.weightKg} กก.`;
+          return `<div style="font-size: 11px; line-height: 1.35; margin-bottom: 2px;">• <strong>${it.productName}</strong>${packBadge}: <span style="color: #065f46; font-weight: 700;">${qtyStr}</span></div>`;
+        })
+        .join('');
+
+      return `
+        <tr style="page-break-inside: avoid; border-bottom: 1px solid #cbd5e1; background: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+          <td style="padding: 7px 6px; text-align: center; font-size: 11px; color: #64748b; font-weight: bold; vertical-align: top;">
+            ${idx + 1}
+          </td>
+          <td style="padding: 7px 6px; text-align: center; vertical-align: middle;">
+            <div style="width: 18px; height: 18px; border: 2px solid #0f172a; border-radius: 4px; margin: 0 auto; background: #ffffff;"></div>
+          </td>
+          <td style="padding: 7px 8px; vertical-align: top;">
+            <div style="font-weight: 800; font-family: monospace; font-size: 11px; color: #0f172a;">${order.orderNumber}</div>
+            <div style="font-size: 10px; color: #64748b;">${order.stockSource === 'online' ? 'คลังออนไลน์' : 'คลังโรงงาน'}</div>
+          </td>
+          <td style="padding: 7px 8px; vertical-align: top;">
+            <div style="font-weight: 700; color: #0f172a; font-size: 12px;">${order.customer?.name || '-'}</div>
+            <div style="font-size: 11px; color: #1e3a8a; font-weight: 600;">📞 ${order.customer?.phone || '-'}</div>
+            <div style="font-size: 10.5px; color: #475569; max-width: 200px; line-height: 1.3; margin-top: 2px;">
+              ${order.customer?.address || '-'}
+            </div>
+          </td>
+          <td style="padding: 7px 8px; text-align: center; vertical-align: top;">
+            <span style="display: inline-block; background: #f1f5f9; border: 1.5px solid #0f172a; color: #0f172a; font-weight: 800; font-size: 12px; padding: 2px 7px; border-radius: 6px;">
+              📦 ${boxCount} กล่อง
+            </span>
+          </td>
+          <td style="padding: 7px 8px; vertical-align: top;">
+            ${itemsDetail}
+          </td>
+          <td style="padding: 7px 8px; text-align: right; vertical-align: top; font-weight: 700; color: #065f46; font-size: 11.5px; white-space: nowrap;">
+            ${formatWeight(order.totalWeightKg)}
+          </td>
+          <td style="padding: 7px 8px; text-align: center; vertical-align: top;">
+            ${
+              isCod
+                ? `<div style="background: #fef2f2; border: 1px solid #dc2626; color: #991b1b; padding: 3px 6px; border-radius: 6px; font-weight: 800; font-size: 11px;">
+                    <div>⚠️ COD เก็บปลายทาง</div>
+                    <div style="font-size: 13px; font-family: monospace;">${formatCurrency(order.totalAmount)}</div>
+                  </div>`
+                : `<div style="background: #ecfdf5; border: 1px solid #059669; color: #065f46; padding: 3px 6px; border-radius: 6px; font-weight: 700; font-size: 11px;">
+                    ✓ ชำระแล้ว
+                  </div>`
+            }
+          </td>
+          <td style="padding: 7px 8px; vertical-align: top; font-size: 10.5px;">
+            <div style="font-weight: 700; color: #b45309;">🚚 ${order.courierName || 'Flash Express'}</div>
+            ${
+              trackings.length > 0
+                ? `<div style="font-family: monospace; font-size: 10.5px; color: #0f172a; margin-top: 2px; word-break: break-all;">
+                    ${trackings.join(', ')}
+                  </div>`
+                : '<div style="color: #94a3b8; font-style: italic;">(ยังไม่ระบุเลข)</div>'
+            }
+          </td>
+          <td style="padding: 7px 8px; vertical-align: top; font-size: 10px; color: #64748b;">
+            ${order.note ? `<span style="background: #fef3c7; color: #92400e; padding: 2px 4px; border-radius: 4px;">${order.note}</span>` : '-'}
+          </td>
+        </tr>
+      `;
+    })
+    .join('');
+
+  // Consolidated items table rows
+  const consolidatedRows = consolidatedProducts
+    .map(
+      (p, i) => `
+      <tr style="border-bottom: 1px solid #e2e8f0; font-size: 11px;">
+        <td style="padding: 5px 8px; text-align: center; color: #64748b;">${i + 1}</td>
+        <td style="padding: 5px 8px; font-weight: 700; color: #0f172a;">${p.productName}</td>
+        <td style="padding: 5px 8px; text-align: center;"><span style="background: #f1f5f9; padding: 1px 6px; border-radius: 4px; border: 1px solid #cbd5e1;">${p.packSize}</span></td>
+        <td style="padding: 5px 8px; text-align: right; font-weight: 800; color: #047857;">
+          ${p.isPouch ? `${p.totalPieces.toLocaleString()} ซอง (${formatWeight(p.totalWeightKg)})` : formatWeight(p.totalWeightKg)}
+        </td>
+        <td style="padding: 5px 8px; text-align: center; color: #475569;">${p.ordersCount} บิล</td>
+        <td style="padding: 5px 8px; text-align: center;">
+          <div style="width: 14px; height: 14px; border: 1.5px solid #0f172a; border-radius: 3px; margin: 0 auto;"></div>
+        </td>
+      </tr>
+    `
+    )
+    .join('');
+
+  return `
+    <!DOCTYPE html>
+    <html lang="th">
+    <head>
+      <meta charset="UTF-8">
+      <title>ใบรายการขึ้นของขนส่ง - ${dateLabel} (${courierTitle})</title>
+      <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800;900&display=swap');
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+          font-family: 'Sarabun', -apple-system, sans-serif;
+          background: #ffffff;
+          padding: 16px;
+          color: #0f172a;
+          font-size: 12px;
+          line-height: 1.4;
+        }
+        .header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          border-bottom: 2.5px solid #0f172a;
+          padding-bottom: 12px;
+          margin-bottom: 14px;
+        }
+        .company-title {
+          font-size: 18px;
+          font-weight: 900;
+          color: #0f172a;
+        }
+        .doc-title {
+          font-size: 16px;
+          font-weight: 800;
+          color: #4338ca;
+          margin-top: 2px;
+        }
+        .summary-banner {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+          background: #f8fafc;
+          border: 1.5px solid #cbd5e1;
+          border-radius: 8px;
+          padding: 10px 14px;
+          margin-bottom: 16px;
+        }
+        .summary-card {
+          flex: 1;
+          min-width: 110px;
+          text-align: center;
+          border-right: 1px solid #e2e8f0;
+          padding-right: 8px;
+        }
+        .summary-card:last-child {
+          border-right: none;
+          padding-right: 0;
+        }
+        .card-label {
+          font-size: 10px;
+          font-weight: 700;
+          color: #64748b;
+          text-transform: uppercase;
+        }
+        .card-val {
+          font-size: 16px;
+          font-weight: 900;
+          color: #0f172a;
+          margin-top: 2px;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 16px;
+        }
+        th {
+          background-color: #0f172a;
+          color: #ffffff;
+          font-weight: 700;
+          font-size: 11px;
+          padding: 8px 6px;
+          text-align: left;
+          border-top: 1px solid #0f172a;
+          border-bottom: 1px solid #0f172a;
+        }
+        .picking-section {
+          margin-top: 20px;
+          page-break-inside: avoid;
+          background: #f8fafc;
+          border: 1.5px solid #94a3b8;
+          border-radius: 8px;
+          padding: 12px;
+          margin-bottom: 20px;
+        }
+        .picking-title {
+          font-size: 13px;
+          font-weight: 800;
+          color: #0f172a;
+          margin-bottom: 8px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          border-bottom: 1.5px solid #cbd5e1;
+          padding-bottom: 6px;
+        }
+        .signatures {
+          display: flex;
+          justify-content: space-between;
+          margin-top: 25px;
+          page-break-inside: avoid;
+          padding-top: 15px;
+          border-top: 1.5px dashed #cbd5e1;
+        }
+        .sign-box {
+          text-align: center;
+          width: 30%;
+        }
+        .sign-line {
+          border-bottom: 1px solid #0f172a;
+          height: 38px;
+          margin-bottom: 6px;
+        }
+        .sign-role {
+          font-weight: 700;
+          font-size: 11px;
+          color: #0f172a;
+        }
+        .sign-date {
+          font-size: 10px;
+          color: #64748b;
+          margin-top: 2px;
+        }
+        @media print {
+          body { padding: 8mm; }
+          @page { size: A4 landscape; margin: 8mm; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <div>
+          <div class="company-title">บริษัท สุมาลี ฟู๊ด สระบุรี จำกัด</div>
+          <div style="font-size: 11px; color: #475569;">SUMALEE FOOD SARABURI CO., LTD. • โทร 081-123-8415</div>
+          <div class="doc-title">📋 ใบรายการขึ้นของขนส่ง (DAILY TRANSPORT PACKING & LOADING LIST)</div>
+        </div>
+        <div style="text-align: right; font-size: 11px;">
+          <div>วันที่จัดส่ง: <strong style="font-size: 13px; color: #0f172a;">${dateLabel}</strong></div>
+          <div style="margin-top: 2px;">สายขนส่ง: <strong style="color: #b45309;">${courierTitle}</strong></div>
+          <div style="color: #64748b; font-size: 10px; margin-top: 3px;">พิมพ์เมื่อ: ${new Date().toLocaleDateString('th-TH')} ${new Date().toLocaleTimeString('th-TH')}</div>
+        </div>
+      </div>
+
+      <div class="summary-banner">
+        <div class="summary-card">
+          <div class="card-label">จำนวนออเดอร์</div>
+          <div class="card-val" style="color: #4338ca;">${totalOrders} บิล</div>
+        </div>
+        <div class="summary-card">
+          <div class="card-label">จำนวนกล่องรวม</div>
+          <div class="card-val" style="color: #0f172a;">📦 ${totalBoxes} กล่อง</div>
+        </div>
+        <div class="summary-card">
+          <div class="card-label">น้ำหนักรวมทั้งหมด</div>
+          <div class="card-val" style="color: #047857;">${formatWeight(totalWeightKg)}</div>
+        </div>
+        ${
+          totalPouches28g > 0
+            ? `
+          <div class="summary-card">
+            <div class="card-label">หอมเจียว 28g รวม</div>
+            <div class="card-val" style="color: #d97706;">${totalPouches28g.toLocaleString()} ซอง</div>
+          </div>
+        `
+            : ''
+        }
+        <div class="summary-card" style="background: #fef2f2; border-radius: 6px; padding: 4px 8px;">
+          <div class="card-label" style="color: #991b1b;">ยอด COD เก็บปลายทางรวม</div>
+          <div class="card-val" style="color: #dc2626;">${formatCurrency(totalCodAmount)} (${codOrders.length} บิล)</div>
+        </div>
+      </div>
+
+      <!-- MAIN CHECKLIST TABLE -->
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 30px; text-align: center;">#</th>
+            <th style="width: 36px; text-align: center;">เช็ค [✓]</th>
+            <th style="width: 105px;">เลขที่ PO</th>
+            <th style="width: 180px;">ผู้รับ / เบอร์โทร / ปลายทาง</th>
+            <th style="width: 75px; text-align: center;">กล่อง</th>
+            <th>รายการสินค้าและขนาดแพ็ค</th>
+            <th style="width: 75px; text-align: right;">น้ำหนัก</th>
+            <th style="width: 110px; text-align: center;">ชำระเงิน / COD</th>
+            <th style="width: 120px;">ขนส่ง / เลขพัสดุ</th>
+            <th style="width: 85px;">หมายเหตุ</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRows}
+        </tbody>
+      </table>
+
+      <!-- CONSOLIDATED PICKING SUMMARY FOR WAREHOUSE -->
+      <div class="picking-section">
+        <div class="picking-title">
+          <span>📦 สรุปยอดรวมสินค้าที่ต้องยกขึ้นรถทั้งหมด (Consolidated Product Summary)</span>
+          <span style="font-size: 11px; font-weight: normal; color: #475569;">ใช้สำหรับเบิกและตรวจนับสต็อคขึ้นรถ</span>
+        </div>
+        <table style="margin-bottom: 0;">
+          <thead>
+            <tr style="background: #334155;">
+              <th style="width: 40px; text-align: center; padding: 5px 8px;">ลำดับ</th>
+              <th style="padding: 5px 8px;">ชื่อสินค้า</th>
+              <th style="width: 100px; text-align: center; padding: 5px 8px;">ขนาดแพ็ค</th>
+              <th style="width: 160px; text-align: right; padding: 5px 8px;">จำนวนรวมที่ต้องขึ้นรถ</th>
+              <th style="width: 80px; text-align: center; padding: 5px 8px;">จำนวนบิล</th>
+              <th style="width: 70px; text-align: center; padding: 5px 8px;">ตรวจนับ [✓]</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${consolidatedRows}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- SIGNATURE SECTION -->
+      <div class="signatures">
+        <div class="sign-box">
+          <div class="sign-line"></div>
+          <div class="sign-role">ผู้จัดของ / Warehouse Staff</div>
+          <div class="sign-date">วันที่ ...../...../..........</div>
+        </div>
+        <div class="sign-box">
+          <div class="sign-line"></div>
+          <div class="sign-role">ผู้ตรวจนับสินค้าขึ้นรถ / Loading Checker</div>
+          <div class="sign-date">วันที่ ...../...../..........</div>
+        </div>
+        <div class="sign-box">
+          <div class="sign-line"></div>
+          <div class="sign-role">พนักงานขับรถ / ขนส่งผู้รับมอบสินค้า</div>
+          <div class="sign-date">วันที่ ...../...../..........</div>
         </div>
       </div>
 
